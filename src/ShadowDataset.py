@@ -2,7 +2,9 @@ import os
 import numpy as np
 import torch
 from PIL import Image
-
+import torchvision.transforms.functional as TF
+import torchvision.transforms as transforms
+import random
 
 SHADOW_DATASET_PATH = "set_A"
 MASK_DATASET_PATH = "set_B"
@@ -16,15 +18,50 @@ class ShadowDataset(torch.utils.data.Dataset):
     def __init__(self, root, transforms) -> None:
         # dtype = torch.float32
         self.root = root
-        self.transform = transforms
+        self.transforms = transforms
 
         # loading images
         self.shadow_images = list(
             sorted(os.listdir(os.path.join(root, SHADOW_DATASET_PATH)))
         )
-        self.shadow_mask = list(
+        self.shadow_masks = list(
             sorted(os.listdir(os.path.join(root, MASK_DATASET_PATH)))
         )
+
+    def __call__(self, img, tar):
+        for t in self.transforms:
+            img, tar = t(img, tar)
+        return img, tar
+
+    def transform(self, image, mask):
+
+        # TODO
+        # needs to be adjusted to dataset layout
+
+        # Resize
+        resize = transforms.Resize(size=(520, 520))
+        image = resize(image)
+        mask = resize(mask)
+
+        # Random crop
+        i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(512, 512))
+        image = TF.crop(image, i, j, h, w)
+        mask = TF.crop(mask, i, j, h, w)
+
+        # Random horizontal flipping
+        if random.random() > 0.5:
+            image = TF.hflip(image)
+            mask = TF.hflip(mask)
+
+        # Random vertical flipping
+        if random.random() > 0.5:
+            image = TF.vflip(image)
+            mask = TF.vflip(mask)
+
+        # Transform to tensor
+        image = TF.to_tensor(image)
+        mask = TF.to_tensor(mask)
+        return image, mask
 
     def __getitem__(self, index):
         # loading images and masks
@@ -32,13 +69,13 @@ class ShadowDataset(torch.utils.data.Dataset):
             self.root, SHADOW_DATASET_PATH, self.shadow_images[index]
         )
         shadow_mask_path = os.path.join(
-            self.root, MASK_DATASET_PATH, self.shadow_mask[index]
+            self.root, MASK_DATASET_PATH, self.shadow_masks[index]
         )
         # converting images to RGB
         img = Image.open(shadow_image_path).convert("RGB")
 
         # converting masks to np.array
-        mask = Image.open(shadow_mask_path)
+        mask = Image.open(shadow_mask_path)  # .convert("RGB")
         mask = np.array(mask)
 
         shadow_ids = np.unique(mask)
@@ -58,7 +95,8 @@ class ShadowDataset(torch.utils.data.Dataset):
             xmax = np.max(pos[1])
             ymin = np.min(pos[0])
             ymax = np.max(pos[0])
-            boxes.append([xmin, ymin, xmax, ymax])
+            if xmin != xmax and ymin != ymax:
+                boxes.append([xmin, ymin, xmax, ymax])
 
         # converting everything into a torch.Tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)

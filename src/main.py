@@ -13,12 +13,14 @@ from ShadowModel import ShadowModel
 from ShadowDataset import ShadowDataset
 from detection.engine import train_one_epoch, evaluate
 
-import torchvision.transforms as T
+# import torchvision.transforms as T
+
+import detection.transforms as T
 from pretrained_seg_model import pretrained_seg_model
 import detection.utils as utils
 
-TEST_ROOT_PATH = "data/ISTD_Dataset/test/"
-TRAIN_ROOT_PATH = "data/ISTD_Dataset/train/"
+TEST_ROOT_PATH = "data/ISTD_Dataset/test"
+TRAIN_ROOT_PATH = "data/ISTD_Dataset/train"
 
 
 def get_transform(train):
@@ -26,6 +28,8 @@ def get_transform(train):
     transforms.append(T.ToTensor())
     if train:
         transforms.append(T.RandomHorizontalFlip(0.5))
+        # transforms.append(T.RandomHorizontalFlip(0.5))
+        # transforms.append(T.Resize)
     return T.Compose(transforms)
 
 
@@ -36,7 +40,7 @@ def main():
     num_classes = 2
     # use dataset and defined transformations
     dataset = ShadowDataset(TRAIN_ROOT_PATH, get_transform(train=True))
-    dataset_test = ShadowDataset(TEST_ROOT_PATH, get_transform(train=False))
+    dataset_test = ShadowDataset(TEST_ROOT_PATH, get_transform(train=True))
 
     # split the dataset in train and test set
     indices = torch.randperm(len(dataset)).tolist()
@@ -45,7 +49,11 @@ def main():
 
     # define training and validation data loaders
     data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=2, shuffle=True, num_workers=4, collate_fn=utils.collate_fn
+        dataset,
+        batch_size=4,
+        shuffle=True,
+        num_workers=4,
+        collate_fn=utils.collate_fn,
     )
 
     data_loader_test = torch.utils.data.DataLoader(
@@ -59,7 +67,7 @@ def main():
     # get the model using our helper function
     model = pretrained_seg_model(num_classes)
 
-    model.to(device)
+    model.to(device="cpu")
 
     #    construct an optimizer
     params = [p for p in model.parameters() if p.requires_grad]
