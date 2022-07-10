@@ -1,8 +1,10 @@
 import os
 import random
+from re import I
 
 import numpy as np
 import torch
+import torch.utils.data as data
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
 from PIL import Image
@@ -24,7 +26,15 @@ def create_dataset(directory_path: str) -> list:
     """
     creating list of images
     """
-    pass
+    return list(sorted(os.listdir(directory_path)))
+
+
+def image_loader(image_path: str):
+    """
+    loading image by pillow
+    """
+    # https://github.com/python-pillow/Pillow/issues/835
+    return Image.open(image_path).convert("RGB")
 
 
 class ShadowDataset(torch.utils.data.Dataset):
@@ -40,6 +50,14 @@ class ShadowDataset(torch.utils.data.Dataset):
         self.shadow_masks = list(
             sorted(os.listdir(os.path.join(root, MASK_DATASET_PATH)))
         )
+
+        dataset_perc = 0.2  # part of dataset
+        self.shadow_images = self.shadow_images[
+            : int(len(self.shadow_images) * dataset_perc)
+        ]
+        self.shadow_masks = self.shadow_masks[
+            : int(len(self.shadow_masks) * dataset_perc)
+        ]
 
     def __call__(self, img, tar):
         for t in self.transforms:
@@ -146,3 +164,39 @@ class ShadowDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.shadow_images)
+
+
+class Dataset(data.Dataset):
+    def __init__(self, root, loader, transform=None, target_transform=None):
+
+        images = create_dataset(root)
+        if len(images == 0):
+            raise (RuntimeError(f"No files in: {root}"))
+
+        self.root = root
+        self.loader = loader
+        self.images = images
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __getitem__(self, index: int) -> tuple:
+        """
+        returns image and target as a tuple
+        """
+        path, target = self.images[index]
+        image = self.loader(path)
+        if self.transform is not None:
+            image = self.transform(image)
+        if self.target_transform is not None:
+            target = self.target_transform(image)
+
+        return image, target
+
+    def __repr__(self) -> str:
+
+        # TODO define representation of class
+
+        return super().__repr__()
+
+    def __len__(self):
+        return len(self.images)
