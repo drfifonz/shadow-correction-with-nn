@@ -1,10 +1,11 @@
 import os
+import random
+
 import numpy as np
 import torch
-from PIL import Image
-import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
-import random
+import torchvision.transforms.functional as TF
+from PIL import Image
 
 SHADOW_DATASET_PATH = "set_A"
 MASK_DATASET_PATH = "set_B"
@@ -12,6 +13,18 @@ CLEAR_DATASET_PATH = "set_C"
 # TEST_SHADOW_DATASET_PATH = "test/test_A"
 # TEST_MASK_DATASET_PATH = "test/test_B"
 # TEST_CLEAR_DATASET_PATH = "test/test_C"
+def rename_paths(dataset_root_path: str) -> str:
+    """
+    checking and renaming folder's path to standarized vesion
+    """
+    pass
+
+
+def create_dataset(directory_path: str) -> list:
+    """
+    creating list of images
+    """
+    pass
 
 
 class ShadowDataset(torch.utils.data.Dataset):
@@ -39,12 +52,16 @@ class ShadowDataset(torch.utils.data.Dataset):
         # needs to be adjusted to dataset layout
 
         # Resize
-        resize = transforms.Resize(size=(520, 520))
+        resize = transforms.Resize(size=(128, 128))
         image = resize(image)
+        # print(type(image))
+
         mask = resize(mask)
 
         # Random crop
-        i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(512, 512))
+        # TODO change output_size to sth more suitable
+        # smaller values
+        i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(50, 50))
         image = TF.crop(image, i, j, h, w)
         mask = TF.crop(mask, i, j, h, w)
 
@@ -79,6 +96,7 @@ class ShadowDataset(torch.utils.data.Dataset):
         mask = np.array(mask)
 
         shadow_ids = np.unique(mask)
+
         # 1st id is background, so it is removed
         shadow_ids = shadow_ids[1:]
 
@@ -87,6 +105,9 @@ class ShadowDataset(torch.utils.data.Dataset):
         masks = mask == shadow_ids[:, None, None]
 
         # get bounding box coordinates for each mask
+
+        # img, mask = self.transform(img, mask)
+
         num_shadows = len(shadow_ids)
         boxes = []
         for i in range(num_shadows):
@@ -100,12 +121,14 @@ class ShadowDataset(torch.utils.data.Dataset):
 
         # converting everything into a torch.Tensor
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
+
         # there is only one class
         labels = torch.ones((num_shadows,), dtype=torch.int64)
         masks = torch.as_tensor(masks, dtype=torch.uint8)
 
         image_id = torch.tensor([index])
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+
         # suppose all instances are not crowd
         iscrowd = torch.zeros((num_shadows,), dtype=torch.int64)
 
@@ -119,7 +142,6 @@ class ShadowDataset(torch.utils.data.Dataset):
 
         if self.transforms is not None:
             img, target = self.transforms(img, target)
-
         return img, target
 
     def __len__(self):
