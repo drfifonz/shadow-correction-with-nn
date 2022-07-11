@@ -1,6 +1,10 @@
 import argparse
 import sys
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def parse_arguments():
     description = "Parser"

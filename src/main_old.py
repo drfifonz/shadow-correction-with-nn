@@ -87,8 +87,9 @@ def main():
         lr_scheduler.step()
 
         # evaluate on the test dataset
-        evaluate(model, data_loader_test, device=device)
-
+        res = evaluate(model, data_loader_test, device=device)
+        if epoch == num_epochs - 1:
+            print(res)
     print("It's done!")
 
 
