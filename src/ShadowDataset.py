@@ -167,7 +167,7 @@ class ShadowDataset(torch.utils.data.Dataset):
 
 
 class Dataset(data.Dataset):
-    def __init__(self, root, loader, transform=None, target_transform=None):
+    def __init__(self, root, loader, transforms_=None, target_transform=None):
 
         images = create_dataset(root)
         if len(images == 0):
@@ -176,8 +176,8 @@ class Dataset(data.Dataset):
         self.root = root
         self.loader = loader
         self.images = images
-        self.transform = transform
-        self.target_transform = target_transform
+        self.transform = transforms.Compose(transforms_)
+        self.target_transform = transforms.Compose(target_transform)
 
     def __getitem__(self, index: int) -> tuple:
         """

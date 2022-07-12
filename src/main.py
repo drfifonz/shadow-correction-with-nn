@@ -1,28 +1,22 @@
 import argparse
 import sys
 
+from arguments_parser import arguments_parser
+from train import train
+from test import test
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def parse_arguments():
-    description = "Parser"
-    parser = argparse.ArgumentParser(description=description)
-
-    parser.add_argument("--type", type=str, default="test", help="[test/train]")
-    parser.add_argument("--batch_size", type=int, default=1, help="Set a batch size")
-
-    return parser.parse_args()
-
-
 def main():
-    args = parse_arguments()
+
+    args = arguments_parser()
 
     if args.type == "test":
-        pass
+        train(args)
     elif args.type == "train":
-        pass
+        test(args)
     else:
         sys.exit("Bad type to run")
 
