@@ -13,7 +13,8 @@ def mask_generator(shadow_img, shadow_free_img) -> torch.Tensor:
 
 def weights_init(model):
     """
-    Function takes an initialized model as input and reinitializes all convolutional, convolutional-transpose, and batch normalization layers to meet this criteria.
+    Function takes an initialized model as input and reinitializes all convolutional,
+    convolutional-transpose, and batch normalization layers to meet this criteria.
     """
     classname: str = model.__class__.__name__
     if classname.find("Conv") != -1:
