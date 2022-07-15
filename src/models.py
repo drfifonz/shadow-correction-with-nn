@@ -6,8 +6,30 @@ import torch.nn.functional as F
 
 
 class Generator(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, input_nc, output_nc, n_residual_blocks=9) -> None:
         super(Generator, self).__init__()
+
+        self.model = nn.Sequential(
+            nn.ReflectionPad2d(3),
+            # TODO if needed change conv2d and instancenorm arguments to
+            # meet our needs
+            nn.Conv2d(input_nc, 64, 7),
+            nn.InstanceNorm2d(64),
+            nn.ReLU(inplace=True),
+        )
+        in_features = 64
+        out_features = in_features * 2
+
+        for _ in range(2):
+            self.model = nn.Sequential(
+                nn.Conv2d(
+                    in_features, out_features, kernel_size=3, stride=2, padding=1
+                ),
+                nn.InstanceNorm2d(out_features),
+                nn.ReLU(inplace=True),
+            )
+            in_features = out_features
+            out_features = in_features * 2
 
     def forward(self, x):
         pass
