@@ -1,12 +1,14 @@
+import torch
 from torch.utils.data import DataLoader
+
 from trainer import Trainer
+from utils.visualizer import Visualizer
 
 
 def train(opt):
     """
     training model
     """
-    Trainer(opt)
 
     if opt.resume:
         epoch_start = 3
@@ -15,8 +17,22 @@ def train(opt):
 
     dataloader = DataLoader()
 
+    trainer = Trainer(opt)
+
+    visualizer = Visualizer(opt)
+
     # TRAINING
     print("Starting training loop...")
-    for epoch in range(epoch_num := 3):
+    for epoch in range(epoch_num := opt.epochs):
         for i, data_i in enumerate(dataloader, start=epoch_start):
-            pass
+
+            # training part
+            trainer.run_one_batch_for_generator(data=data_i)
+            trainer.run_one_batch_for_discriminator(data=data_i)
+            # discriminator can be used less time than generator
+
+            # visualization part (plots.etc)
+            # terminal plotting (probably need new class)
+
+        # update lr
+        # saving epoch state
