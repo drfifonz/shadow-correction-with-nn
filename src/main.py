@@ -1,8 +1,7 @@
-
 import argparse
 import sys
 
-from arguments_parser import arguments_parser, print_all_user_arguments
+from utils.arguments_parser import arguments_parser, print_all_user_arguments
 from train import train
 from test import test
 from dotenv import load_dotenv
@@ -21,7 +20,6 @@ def main():
         test(args)
     else:
         sys.exit("Bad type to run")
-
 
 
 if __name__ == "__main__":

@@ -135,15 +135,15 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Conv2d(input_nc, output_nc=64, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(input_nc, output_nc := 64, kernel_size=4, stride=2, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
         )
 
         output_nc = 64
         downsampling = (
             nn.Conv2d(
-                input_nc=output_nc,
-                output_nc=output_nc * 2,
+                input_nc := output_nc,
+                output_nc := output_nc * 2,
                 kernel_size=4,
                 stride=2,
                 padding=1,
@@ -157,8 +157,8 @@ class Discriminator(nn.Module):
         # classification layer
         self.model.append(
             nn.Conv2d(
-                input_nc=output_nc,
-                output_nc=1,
+                input_nc := output_nc,
+                output_nc := 1,
                 kernel_size=4,
                 stride=2,
                 padding=1,
