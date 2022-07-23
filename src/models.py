@@ -168,15 +168,3 @@ class Discriminator(nn.Module):
         return F.avg_pool2d(x, x.size()[2:]).view(
             x.size()[0], -1
         )  # consider other forward function
-
-
-def main():
-    shadow = Shadower(64, 128, 9)
-    deshadow = Deshadower(64, 128, 9)
-    disc = Discriminator(128, 3)
-
-    return 0
-
-
-if __name__ == "__main__":
-    main()
