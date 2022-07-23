@@ -3,24 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels):
-        super(ResidualBlock).__init__()
-
-        self.conv_block = nn.Sequential(
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, kernel_size=3),
-            nn.InstanceNorm2d(in_channels),
-            nn.ReLU(inplace=True),
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, 3),
-            nn.InstanceNorm2d(in_channels),
-        )
-
-    def forward(self, x):
-        return x + self.conv_block(x)
-
-
 class Deshadower(nn.Module):
     def __init__(self, in_channels, out_channels, res_blocks=9):
         super(Deshadower, self).__init__()
@@ -49,7 +31,15 @@ class Deshadower(nn.Module):
             out_channels = in_channels * 2
 
         # residual blocks
-        residual_block = ResidualBlock(in_channels)
+        residual_block = (
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_channels, in_channels, kernel_size=3),
+            nn.InstanceNorm2d(in_channels),
+            nn.ReLU(inplace=True),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_channels, in_channels, 3),
+            nn.InstanceNorm2d(in_channels),
+        )
 
         for _ in range(res_blocks):
             self.model, *_ = map(self.model.append, residual_block)
@@ -86,7 +76,7 @@ class Shadower(nn.Module):
             nn.ReflectionPad2d(3),
             nn.Conv2d(in_channels + 1, 64, 7),  # + mask
             nn.InstanceNorm2d(64),
-            nn.ReLu(inplace=True),
+            nn.ReLU(inplace=True),
         )
 
         # downsampling
@@ -104,7 +94,15 @@ class Shadower(nn.Module):
             out_channels = in_channels * 2
 
         # residual blocks
-        residual_block = ResidualBlock(in_channels)
+        residual_block = (
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_channels, in_channels, kernel_size=3),
+            nn.InstanceNorm2d(in_channels),
+            nn.ReLU(inplace=True),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_channels, in_channels, 3),
+            nn.InstanceNorm2d(in_channels),
+        )
 
         for _ in range(res_blocks):
             self.model, *_ = map(self.model.append, residual_block)
