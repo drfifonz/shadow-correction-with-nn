@@ -24,11 +24,11 @@ def train(opt):
     # TRAINING
     print("Starting training loop...")
     for epoch in range(epoch_num := opt.epochs):
-        for i, data_i in enumerate(dataloader, start=epoch_start):
+        for i, data in enumerate(dataloader, start=epoch_start):
 
             # training part
-            trainer.run_one_batch_for_generator(data=data_i)
-            trainer.run_one_batch_for_discriminator(data=data_i)
+            trainer.run_one_batch_for_generator(data=data)
+            trainer.run_one_batch_for_discriminator(data=data)
             # discriminator can be used less time than generator
 
             # visualization part (plots.etc)
