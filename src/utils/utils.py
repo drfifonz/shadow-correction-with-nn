@@ -1,4 +1,5 @@
 from pydoc import classname
+from re import L
 import torch
 import torch.nn as nn
 from PIL import Image
@@ -23,3 +24,16 @@ def weights_init(model):
     elif classname.find("BatchNorm") != -1:
         nn.init.normal_(model.weight.data, 1.0, 0.02)
         nn.init.constant_(model.bias.data, 0)
+
+
+class LR_lambda:
+    def __init__(self, num_epochs, offset, decay_start_epoch):
+        assert (num_epochs - decay_start_epoch) > 0
+        self.num_epochs = num_epochs
+        self.offset = offset
+        self.decay_start_epoch = decay_start_epoch
+
+    def step(self, epoch):
+        return 1.0 - max(0, epoch + self.offset - self.decay_start_epoch) / (
+            self.num_epochs - self.decay_start_epoch
+        )

@@ -41,6 +41,9 @@ class Deshadower(nn.Module):
             nn.InstanceNorm2d(in_channels),
         )
 
+        if res_blocks <= 3:
+            res_blocks = 9
+
         for _ in range(res_blocks):
             self.model, *_ = map(self.model.append, residual_block)
 
@@ -103,6 +106,8 @@ class Shadower(nn.Module):
             nn.Conv2d(in_channels, in_channels, 3),
             nn.InstanceNorm2d(in_channels),
         )
+        if res_blocks <= 3:
+            res_blocks = 9
 
         for _ in range(res_blocks):
             self.model, *_ = map(self.model.append, residual_block)
@@ -149,6 +154,9 @@ class Discriminator(nn.Module):
             nn.InstanceNorm2d(output_nc),  # try nn.BatchNorm2d()
             nn.LeakyReLU(0.2, inplace=True),
         )
+        if layers_number <= 3:
+            layers_number = 3
+
         for _ in range(layers_number):
             self.model, *_ = map(self.model.append, downsampling)
 

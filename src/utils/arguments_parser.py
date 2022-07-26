@@ -13,6 +13,9 @@ def arguments_parser():
     parser.add_argument("--type", type=str, default="test", help="[test/train]")
     parser.add_argument("--resume", action="store_true", help="resume training")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
+    parser.add_argument(
+        "--size", type=int, default=400, help="size of the data crop (squared assumed)"
+    )
     parser.add_argument("--threads", type=int, default=5, help="number of threads")
     parser.add_argument(
         "--in_channels", type=int, default=3, help=" number of input channels"
