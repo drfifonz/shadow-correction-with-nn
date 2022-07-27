@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from trainer import Trainer
 from utils.visualizer import Visualizer
+from utils.utils import allocate_memory
 
 
 def train(opt):
@@ -20,15 +21,14 @@ def train(opt):
     trainer = Trainer(opt)
     visualizer = Visualizer(opt)
 
-    # allocate memory
-    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
-    input_shadow = Tensor(opt.batch_size, opt.out_channels, opt.size, opt.size)
-    input_mask = Tensor(opt.batch_size, opt.out_channels, opt.size, opt.size)
-    target_real = Variable(Tensor(opt.batch_size).fill_(1.0), requires_grad=False)
-    target_fake = Variable(Tensor(opt.batch_size).fill_(0.0), requires_grad=False)
-    mask_non_shadow = Variable(
-        Tensor(opt.batch_size, 1, opt.size, opt.size).fill_(-1.0), requires_grad=False
-    )
+    # memory allocation
+    (
+        input_shadow,
+        input_mask,
+        target_real,
+        target_fake,
+        mask_non_shadow,
+    ) = allocate_memory(opt)
 
     # TRAINING
     print("Starting training loop...")

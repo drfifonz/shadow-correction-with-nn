@@ -2,7 +2,7 @@ import itertools
 import torch
 import torch.nn as nn
 import models
-from utils.utils import weights_init
+from utils.utils import mask_generator, weights_init
 from utils.utils import LR_lambda
 
 
@@ -68,11 +68,14 @@ class Trainer:
             lr_lambda=LR_lambda(opt.n_epochs, opt.epoch, opt.decay_epoch).step,
         )
 
-    def run_one_batch_for_generator(self, real_shadow, real_mask, mask_non_shadow):
+    def run_one_batch_for_generator(
+        self, real_shadow, real_mask, mask_non_shadow, mask_queue, target_real
+    ):
         pass
         # TODO finish
         # zero_grad()
         self.optimizer_gen.zero_grad()
+
         same_mask = self.generator_shadow_to_free(real_shadow)
         same_shadow = self.generator_free_to_shadow(real_mask, mask_non_shadow)
 
@@ -85,12 +88,35 @@ class Trainer:
         # GAN loss
         fake_mask = self.generator_shadow_to_free(real_shadow)
         pred_fake = self.discriminator_free_to_shadow(fake_mask)
-        loss_gen_shadow_to_free = (
-            self.gan_loss_criterion(same_shadow, real_shadow) * 5.0
-        )
+        loss_gen_shadow_to_free = self.gan_loss_criterion(pred_fake, target_real)
+        mask_queue.insert(mask_generator(real_shadow, fake_mask))
+
+        fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
+        pred_fake = self.discriminator_shadow_to_free(fake_shadow)
+        loss_gen_free_to_shadow = self.gan_loss_criterion(pred_fake, target_real)
 
         # Cycle loss
+        recovered_shadow = self.generator_free_to_shadow(
+            fake_mask, mask_queue.last_item()
+        )
+        loss_cycle_shadow = (
+            self.cycle_loss_criterion(recovered_shadow, real_shadow) * 10.0
+        )
+
+        recovered_mask = self.generator_shadow_to_free(fake_shadow)
+        loss_cycle_mask = self.cycle_loss_criterion(recovered_mask, real_mask) * 10.0
+
         # Total loss
+        gen_loss = (
+            identity_loss_shadow
+            + identity_loss_mask
+            + loss_gen_shadow_to_free
+            + loss_gen_free_to_shadow
+            + loss_cycle_shadow
+            + loss_cycle_mask
+        )
+        gen_loss.backward()
+
         self.optimizer_gen.step()
 
     def run_one_batch_for_discriminator(self, data):
