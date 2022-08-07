@@ -5,6 +5,11 @@ import models
 from utils.utils import mask_generator, weights_init
 from utils.utils import LR_lambda
 
+# TODO clean up & add comments & rename some variables
+# TODO maybe create dedicated discriminator's optimizers
+# TODO what should disc_f2s and disc_s2f return
+# TODO queue mask and buffer classes
+
 
 class Trainer:
     def __init__(self, opt) -> None:
@@ -88,6 +93,7 @@ class Trainer:
         # GAN loss
         fake_mask = self.generator_shadow_to_free(real_shadow)
         pred_fake = self.discriminator_free_to_shadow(fake_mask)
+
         loss_gen_shadow_to_free = self.gan_loss_criterion(pred_fake, target_real)
         mask_queue.insert(mask_generator(real_shadow, fake_mask))
 
@@ -119,12 +125,59 @@ class Trainer:
 
         self.optimizer_gen.step()
 
-    def run_one_batch_for_discriminator(self, data):
+    def run_one_batch_for_discriminator_s2f(
+        self,
+        real_shadow,
+        real_mask,
+        target_real,
+        target_fake,
+        fake_shadow_buff,
+        mask_queue,
+    ):
         # zero_grad()
+        self.optimizer_disc_deshadower.zero_grad()
+
         # Real loss
+        prediction_real = self.discriminator_shadow_to_free(real_shadow)
+        loss_disc_real = self.gan_loss_criterion(prediction_real, target_real)
+
         # Fake loss
+        fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
+        fake_shadow = fake_shadow_buff.push_and_pop(fake_shadow)
+        prediction_fake = self.discriminator_shadow_to_free(fake_shadow.detach())
+        loss_disc_fake = self.gan_loss_criterion(prediction_fake, target_fake)
+
         # Total loss
-        pass
+        loss_disc = (loss_disc_real + loss_disc_fake) / 2.0
+        loss_disc.backward()
+        self.discriminator_optimizer.step()
+
+    def run_one_batch_for_discriminator_f2s(
+        self,
+        real_shadow,
+        real_mask,
+        target_real,
+        target_fake,
+        fake_mask_buff,
+        mask_queue,
+    ):
+        # zero_grad()
+        self.optimizer_disc_shadower.zero_grad()
+
+        # Real loss
+        prediction_real = self.discriminator_free_to_shadow(real_mask)
+        loss_disc_real = self.gan_loss_criterion(prediction_real, target_real)
+
+        # Fake loss
+        fake_mask = self.generator_shadow_to_free(real_shadow, mask_queue.rand_item())
+        fake_mask = fake_mask_buff.push_and_pop(fake_mask)
+        prediction_fake = self.discriminator_free_to_shadow(fake_mask.detach())
+        loss_disc_fake = self.gan_loss_criterion(prediction_fake, target_fake)
+
+        # Total loss
+        loss_disc = (loss_disc_real + loss_disc_fake) / 2.0
+        loss_disc.backward()
+        self.discriminator_optimizer.step()
 
     def discriminator_optimizer(
         self,

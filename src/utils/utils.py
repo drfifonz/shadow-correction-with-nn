@@ -70,3 +70,26 @@ class QueueMask:
     def last_item(self):
         assert self.queue.__len__ > 0, "Error! Empty queue!"
         return self.queue[self.queue.__len__() - 1]
+
+
+class Buffer:
+    def __init__(self, max_size=50):
+        assert max_size > 0, "Empty buffer"
+        self.max_size = max_size
+        self.data = []
+
+    def push_and_pop(self, data):
+        res = []
+        for el in data.data:
+            el = torch.unsqueeze(el, 0)
+            if len(self.data) < self.max_size:
+                self.data.append(el)
+                res.append(el)
+            else:
+                if np.random.uniform(0, 1) > 0.5:
+                    i = np.random.randint(0, self.max_size - 1)
+                    res.append(self.data[i].clone())
+                    self.data[i] = el
+                else:
+                    res.append(el)
+        return Variable(torch.cat(res))
