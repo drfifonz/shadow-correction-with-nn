@@ -1,9 +1,9 @@
+import numpy as np
+from PIL import Image
 from pydoc import classname
 from re import L
 import torch
-import numpy as np
 import torch.nn as nn
-from PIL import Image
 from torch.autograd import Variable
 
 
@@ -29,32 +29,28 @@ def weights_init(model):
 
 
 class LR_lambda:
+    """
+    Computes a multiplicative factor given an integer parameter epoch,
+    one for each group in optimizer.param_groups
+    """
+
+    # TODO param types
     def __init__(self, num_epochs, offset, decay_start_epoch):
         assert (num_epochs - decay_start_epoch) > 0
         self.num_epochs = num_epochs
         self.offset = offset
         self.decay_start_epoch = decay_start_epoch
 
+    # TODO description
     def step(self, epoch):
         return 1.0 - max(0, epoch + self.offset - self.decay_start_epoch) / (
             self.num_epochs - self.decay_start_epoch
         )
 
 
-def allocate_memory(opt):
-    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
-    input_shadow = Tensor(opt.batch_size, opt.out_channels, opt.size, opt.size)
-    input_mask = Tensor(opt.batch_size, opt.out_channels, opt.size, opt.size)
-    target_real = Variable(Tensor(opt.batch_size).fill_(1.0), requires_grad=False)
-    target_fake = Variable(Tensor(opt.batch_size).fill_(0.0), requires_grad=False)
-    mask_non_shadow = Variable(
-        Tensor(opt.batch_size, 1, opt.size, opt.size).fill_(-1.0), requires_grad=False
-    )
-    return [input_shadow, input_mask, target_real, target_fake, mask_non_shadow]
-
-
+# TODO description everywhere
 class QueueMask:
-    def __init__(self, lenght) -> None:
+    def __init__(self, lenght: int) -> None:
         self.max_len = lenght
         self.queue = []
 
@@ -73,6 +69,12 @@ class QueueMask:
 
 
 class Buffer:
+    """
+    Used for temporary storage of shadow masks and shadowed images.
+    It is initialized with maximum size and to store a mask or a shadow
+    push_and_pop function can be utilised.
+    """
+
     def __init__(self, max_size=50):
         assert max_size > 0, "Empty buffer"
         self.max_size = max_size

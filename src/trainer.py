@@ -1,7 +1,8 @@
 import itertools
+import models
 import torch
 import torch.nn as nn
-import models
+from torch.autograd import Variable
 from utils.utils import mask_generator, weights_init
 from utils.utils import LR_lambda
 
@@ -12,6 +13,12 @@ from utils.utils import LR_lambda
 
 
 class Trainer:
+    """
+    Class Trainer creates and instantiates all models, loss criterions, optimizers and
+    learning rates. It's functions are responsible for training models, creating optimizers and
+    updating learning rates. Additionally it holds methods for saving, loading and resuming training states.
+    """
+
     def __init__(self, opt) -> None:
         self.opt = opt
         # networks
@@ -73,12 +80,10 @@ class Trainer:
             lr_lambda=LR_lambda(opt.n_epochs, opt.epoch, opt.decay_epoch).step,
         )
 
+    # TODO pamrams types
     def run_one_batch_for_generator(
         self, real_shadow, real_mask, mask_non_shadow, mask_queue, target_real
     ):
-        pass
-        # TODO finish
-        # zero_grad()
         self.optimizer_gen.zero_grad()
 
         same_mask = self.generator_shadow_to_free(real_shadow)
@@ -125,6 +130,7 @@ class Trainer:
 
         self.optimizer_gen.step()
 
+    # TODO pamrams types
     def run_one_batch_for_discriminator_s2f(
         self,
         real_shadow,
@@ -152,6 +158,7 @@ class Trainer:
         loss_disc.backward()
         self.discriminator_optimizer.step()
 
+    # TODO pamrams types
     def run_one_batch_for_discriminator_f2s(
         self,
         real_shadow,
@@ -179,12 +186,14 @@ class Trainer:
         loss_disc.backward()
         self.discriminator_optimizer.step()
 
+    # TODO description
     def discriminator_optimizer(
         self,
         model: nn.Module,
     ):
         return torch.optim.Adam(model.parameters(), lr=self.opt.lr, betas=(0.5, 0.999))
 
+    # TODO description
     def generator_optimizer(
         self,
         model_deshadower: nn.Module,
@@ -194,6 +203,18 @@ class Trainer:
             model_deshadower.parameters(), model_shadower.parameters()
         )
         return torch.optim.Adam(combine_parameters, lr=self.opt.lr, betas=(0.5, 0.999))
+
+    def allocate_memory(opt):
+        Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
+        input_shadow = Tensor(opt.batch_size, opt.out_channels, opt.size, opt.size)
+        input_mask = Tensor(opt.batch_size, opt.out_channels, opt.size, opt.size)
+        target_real = Variable(Tensor(opt.batch_size).fill_(1.0), requires_grad=False)
+        target_fake = Variable(Tensor(opt.batch_size).fill_(0.0), requires_grad=False)
+        mask_non_shadow = Variable(
+            Tensor(opt.batch_size, 1, opt.size, opt.size).fill_(-1.0),
+            requires_grad=False,
+        )
+        return [input_shadow, input_mask, target_real, target_fake, mask_non_shadow]
 
     def update_lr_per_epoch():
         pass
