@@ -5,6 +5,8 @@ import torch.nn as nn
 from torch.autograd import Variable
 from utils.utils import mask_generator, weights_init
 from utils.utils import LR_lambda
+from utils.utils import QueueMask
+from utils.utils import Buffer
 
 # TODO clean up & add comments & rename some variables
 # TODO maybe create dedicated discriminator's optimizers
@@ -29,10 +31,10 @@ class Trainer:
             in_channels=opt.in_channels, out_channels=opt.out_channels
         )
         self.discriminator_shadow_to_free = models.Discriminator(
-            input_nc=opt.in_channels
+            in_channels=opt.in_channels
         )
         self.discriminator_free_to_shadow = models.Discriminator(
-            input_nc=opt.out_channels
+            in_channels=opt.out_channels
         )
 
         # sending models to gpu
@@ -48,13 +50,6 @@ class Trainer:
         self.discriminator_free_to_shadow.apply(weights_init)
         self.discriminator_shadow_to_free.apply(weights_init)
 
-        # this criterion uses mean squared error between inputs
-        self.gan_loss_criterion = nn.MSELoss()
-
-        # L1Loss calculates the mean absulute error
-        self.cycle_loss_criterion = nn.L1Loss()
-        self.identity_loss_criterion = nn.L1Loss()
-
         # optimizer init
         self.optimizer_gen = self.generator_optimizer(
             self.generator_shadow_to_free, self.generator_free_to_shadow
@@ -66,23 +61,55 @@ class Trainer:
             self.discriminator_free_to_shadow
         )
 
+        # self.__critirion_init()
+
+        # self.__optimizers_init()
+        # self.__learning_rate_schedulers_init(opt)
+
+    def critirion_init(self) -> tuple:
+        """
+        initializes loss creterion
+        """
+        # this criterion uses mean squared error between inputs
+        gan_loss_criterion = nn.MSELoss()
+
+        # L1Loss calculates the mean absulute error
+        cycle_loss_criterion = nn.L1Loss()
+        identity_loss_criterion = nn.L1Loss()
+
+        return gan_loss_criterion, cycle_loss_criterion, identity_loss_criterion
+
+    def learning_rate_schedulers_init(self, opt, current_epoch: int):
+        """
+        Initializes learning rate schedulers
+        """
+
         # lr schedulers
-        self.lr_scheduler_gen = torch.optim.lr_scheduler.LambdaLR(
+        lr_scheduler_gen = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_gen,
-            lr_lambda=LR_lambda(opt.n_epochs, opt.epoch, opt.decay_epoch).step,
+            lr_lambda=LR_lambda(opt.n_epochs, 0, opt.decay_epoch).step(current_epoch),
         )
-        self.lr_scheduler_disc_s = torch.optim.lr_scheduler.LambdaLR(
+        lr_scheduler_disc_s = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_disc_shadower,
-            lr_lambda=LR_lambda(opt.n_epochs, opt.epoch, opt.decay_epoch).step,
+            lr_lambda=LR_lambda(opt.n_epochs, 0, opt.decay_epoch).step(current_epoch),
         )
-        self.lr_scheduler_disc_d = torch.optim.lr_scheduler.LambdaLR(
+        lr_scheduler_disc_d = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_disc_deshadower,
-            lr_lambda=LR_lambda(opt.n_epochs, opt.epoch, opt.decay_epoch).step,
+            lr_lambda=LR_lambda(opt.n_epochs, 0, opt.decay_epoch).step(current_epoch),
         )
+        return lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d
 
     # TODO pamrams types
     def run_one_batch_for_generator(
-        self, real_shadow, real_mask, mask_non_shadow, mask_queue, target_real
+        self,
+        real_shadow: torch.Tensor,
+        real_mask: torch.Tensor,
+        mask_non_shadow: torch.Tensor,
+        mask_queue: QueueMask,
+        target_real: torch.Tensor,
+        gan_loss_criterion: nn.MSELoss,
+        cycle_loss_criterion: nn.L1Loss,
+        identity_loss_criterion: nn.L1Loss,
     ):
         self.optimizer_gen.zero_grad()
 
@@ -90,32 +117,28 @@ class Trainer:
         same_shadow = self.generator_free_to_shadow(real_mask, mask_non_shadow)
 
         # Identity loss
-        identity_loss_mask = self.identity_loss_criterion(same_mask, real_mask) * 5.0
-        identity_loss_shadow = (
-            self.identity_loss_criterion(same_shadow, real_shadow) * 5.0
-        )
+        identity_loss_mask = identity_loss_criterion(same_mask, real_mask) * 5.0
+        identity_loss_shadow = identity_loss_criterion(same_shadow, real_shadow) * 5.0
 
         # GAN loss
         fake_mask = self.generator_shadow_to_free(real_shadow)
         pred_fake = self.discriminator_free_to_shadow(fake_mask)
 
-        loss_gen_shadow_to_free = self.gan_loss_criterion(pred_fake, target_real)
+        loss_gen_shadow_to_free = gan_loss_criterion(pred_fake, target_real)
         mask_queue.insert(mask_generator(real_shadow, fake_mask))
 
         fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
         pred_fake = self.discriminator_shadow_to_free(fake_shadow)
-        loss_gen_free_to_shadow = self.gan_loss_criterion(pred_fake, target_real)
+        loss_gen_free_to_shadow = gan_loss_criterion(pred_fake, target_real)
 
         # Cycle loss
         recovered_shadow = self.generator_free_to_shadow(
             fake_mask, mask_queue.last_item()
         )
-        loss_cycle_shadow = (
-            self.cycle_loss_criterion(recovered_shadow, real_shadow) * 10.0
-        )
+        loss_cycle_shadow = cycle_loss_criterion(recovered_shadow, real_shadow) * 10.0
 
         recovered_mask = self.generator_shadow_to_free(fake_shadow)
-        loss_cycle_mask = self.cycle_loss_criterion(recovered_mask, real_mask) * 10.0
+        loss_cycle_mask = cycle_loss_criterion(recovered_mask, real_mask) * 10.0
 
         # Total loss
         gen_loss = (
@@ -130,56 +153,56 @@ class Trainer:
 
         self.optimizer_gen.step()
 
-    # TODO pamrams types
     def run_one_batch_for_discriminator_s2f(
         self,
-        real_shadow,
-        real_mask,
-        target_real,
-        target_fake,
-        fake_shadow_buff,
-        mask_queue,
+        real_shadow: torch.Tensor,
+        real_mask: torch.Tensor,
+        target_real: torch.Tensor,
+        target_fake: torch.Tensor,
+        fake_shadow_buff: Buffer,
+        mask_queue: QueueMask,
+        gan_loss_criterion: nn.MSELoss,
     ):
         # zero_grad()
         self.optimizer_disc_deshadower.zero_grad()
 
         # Real loss
         prediction_real = self.discriminator_shadow_to_free(real_shadow)
-        loss_disc_real = self.gan_loss_criterion(prediction_real, target_real)
+        loss_disc_real = gan_loss_criterion(prediction_real, target_real)
 
         # Fake loss
         fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
         fake_shadow = fake_shadow_buff.push_and_pop(fake_shadow)
         prediction_fake = self.discriminator_shadow_to_free(fake_shadow.detach())
-        loss_disc_fake = self.gan_loss_criterion(prediction_fake, target_fake)
+        loss_disc_fake = gan_loss_criterion(prediction_fake, target_fake)
 
         # Total loss
         loss_disc = (loss_disc_real + loss_disc_fake) / 2.0
         loss_disc.backward()
         self.discriminator_optimizer.step()
 
-    # TODO pamrams types
     def run_one_batch_for_discriminator_f2s(
         self,
-        real_shadow,
-        real_mask,
-        target_real,
-        target_fake,
-        fake_mask_buff,
-        mask_queue,
+        real_shadow: torch.Tensor,
+        real_mask: torch.Tensor,
+        target_real: torch.Tensor,
+        target_fake: torch.Tensor,
+        fake_mask_buff: Buffer,
+        mask_queue: QueueMask,
+        gan_loss_criterion: nn.MSELoss,
     ):
         # zero_grad()
         self.optimizer_disc_shadower.zero_grad()
 
         # Real loss
         prediction_real = self.discriminator_free_to_shadow(real_mask)
-        loss_disc_real = self.gan_loss_criterion(prediction_real, target_real)
+        loss_disc_real = gan_loss_criterion(prediction_real, target_real)
 
         # Fake loss
         fake_mask = self.generator_shadow_to_free(real_shadow, mask_queue.rand_item())
         fake_mask = fake_mask_buff.push_and_pop(fake_mask)
         prediction_fake = self.discriminator_free_to_shadow(fake_mask.detach())
-        loss_disc_fake = self.gan_loss_criterion(prediction_fake, target_fake)
+        loss_disc_fake = gan_loss_criterion(prediction_fake, target_fake)
 
         # Total loss
         loss_disc = (loss_disc_real + loss_disc_fake) / 2.0

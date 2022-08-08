@@ -27,6 +27,15 @@ def arguments_parser():
         "--epochs", type=int, default=5, help="number of epochs of training"
     )
     parser.add_argument("--dataset", type=str, default="ISTD", help="select dataset")
+    parser.add_argument("--lr", type=float, default=0.005, help="learning rate")
+    parser.add_argument(
+        "--n_epochs", type=int, default=5, help="number of epochs during training"
+    )
+    parser.add_argument(
+        "--decay_epoch",
+        type=int,
+        help="epoch to start linearly decaying the learning rate to 0",
+    )
 
     return parser.parse_args()
 
