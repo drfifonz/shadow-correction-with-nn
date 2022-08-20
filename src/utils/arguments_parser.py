@@ -40,7 +40,7 @@ def arguments_parser():
     return parser.parse_args()
 
 
-def print_all_user_arguments(arguments):
+def print_all_user_arguments(arguments: argparse.Namespace) -> None:
     """
     Function prints all values setted in parser
     """

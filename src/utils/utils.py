@@ -1,9 +1,8 @@
 import numpy as np
-from PIL import Image
-from pydoc import classname
-from re import L
 import torch
 import torch.nn as nn
+
+from PIL import Image
 from torch.autograd import Variable
 
 
@@ -14,7 +13,7 @@ def mask_generator(shadow_img, shadow_free_img) -> torch.Tensor:
     pass
 
 
-def weights_init(model):
+def weights_init(model: nn.Module) -> None:
     """
     Function takes an initialized model as input and reinitializes all convolutional,
     convolutional-transpose, and batch normalization layers to meet this criteria.
@@ -34,15 +33,14 @@ class LR_lambda:
     one for each group in optimizer.param_groups
     """
 
-    # TODO param types
     def __init__(self, num_epochs: int, offset: int, decay_start_epoch: int):
         assert (num_epochs - decay_start_epoch) > 0
         self.num_epochs = num_epochs
         self.offset = offset
         self.decay_start_epoch = decay_start_epoch
 
-    # TODO description
     def step(self, epoch: int):
+        # TODO description
         return 1.0 - max(0, epoch + self.offset - self.decay_start_epoch) / (
             self.num_epochs - self.decay_start_epoch
         )
@@ -82,16 +80,16 @@ class Buffer:
 
     def push_and_pop(self, data):
         res = []
-        for el in data.data:
-            el = torch.unsqueeze(el, 0)
+        for element in data.data:
+            element = torch.unsqueeze(element, 0)
             if len(self.data) < self.max_size:
-                self.data.append(el)
-                res.append(el)
+                self.data.append(element)
+                res.append(element)
             else:
                 if np.random.uniform(0, 1) > 0.5:
                     i = np.random.randint(0, self.max_size - 1)
                     res.append(self.data[i].clone())
-                    self.data[i] = el
+                    self.data[i] = element
                 else:
-                    res.append(el)
+                    res.append(element)
         return Variable(torch.cat(res))

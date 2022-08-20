@@ -2,6 +2,10 @@ from datetime import datetime
 
 
 class Visualizer:
+    """
+    Visialize model's working
+    """
+
     def __init__(self, opt) -> None:
         self.opt = opt
 

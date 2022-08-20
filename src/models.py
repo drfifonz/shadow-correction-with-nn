@@ -2,9 +2,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import Any
+
 
 class Deshadower(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, res_blocks=9):
+    def __init__(
+        self,
+        out_channels: int,
+        in_channels: int = 64,
+        res_blocks: int = 9,
+        downsampling_iterations: int = 2,
+        upsampling_iterations: int = 2,
+    ):
         super(Deshadower, self).__init__()
 
         # Initial conv layer
@@ -16,17 +25,22 @@ class Deshadower(nn.Module):
         )
 
         # downsampling
-        in_channels = 64  # to be changed
         out_channels = in_channels * 2
 
-        downsampling = (
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1),
+        downsampling_block = (
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+            ),
             nn.InstanceNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
 
-        for _ in range(2):
-            self.model, *_ = map(self.model.append, downsampling)
+        for _ in range(downsampling_iterations):
+            self.model, *_ = map(self.model.append, downsampling_block)
             in_channels = out_channels
             out_channels = in_channels * 2
 
@@ -49,7 +63,7 @@ class Deshadower(nn.Module):
 
         # upsampling
         out_channels = in_channels // 2
-        upsampling = (
+        upsampling_block = (
             nn.ConvTranspose2d(
                 in_channels, out_channels, 3, stride=2, padding=1, output_padding=1
             ),
@@ -57,8 +71,8 @@ class Deshadower(nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        for _ in range(2):
-            self.model, *_ = map(self.model.append, upsampling)
+        for _ in range(upsampling_iterations):
+            self.model, *_ = map(self.model.append, upsampling_block)
             in_channels = out_channels
             out_channels = in_channels // 2
 
@@ -66,12 +80,19 @@ class Deshadower(nn.Module):
         self.model.append(nn.ReflectionPad2d(3))
         self.model.append(nn.Conv2d(64, out_channels, 7))
 
-    def forward(self, x):
+    def forward(self, x: Any):
         return (self.model(x) + x).tanh()
 
 
 class Shadower(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, res_blocks=9):
+    def __init__(
+        self,
+        out_channels: int,
+        in_channels: int = 64,
+        res_blocks=9,
+        downsampling_iterations: int = 2,
+        upsampling_iterations: int = 2,
+    ):
         super(Shadower, self).__init__()
 
         # initial conv layer
@@ -85,16 +106,16 @@ class Shadower(nn.Module):
         )
 
         # downsampling
-        in_channels = 64
         out_channels = in_channels * 2
-        downsampling = (
+
+        downsampling_block = (
             nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1),
             nn.InstanceNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
 
-        for _ in range(2):
-            self.model, *_ = map(self.model.append, downsampling)
+        for _ in range(downsampling_iterations):
+            self.model, *_ = map(self.model.append, downsampling_block)
             in_channels = out_channels
             out_channels = in_channels * 2
 
@@ -116,13 +137,13 @@ class Shadower(nn.Module):
 
         # upsampling
         out_channels = in_channels // 2
-        upsampling = (
+        upsampling_block = (
             nn.ConvTranspose2d(in_channels, out_channels, 3, stride=2, padding=1),
             nn.InstanceNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
-        for _ in range(2):
-            self.model, *_ = map(self.model.append, upsampling)
+        for _ in range(upsampling_iterations):
+            self.model, *_ = map(self.model.append, upsampling_block)
 
         in_channels = out_channels
         out_channels = in_channels // 2
@@ -131,12 +152,20 @@ class Shadower(nn.Module):
         self.model.append(nn.ReflectionPad2d(3))
         self.model.append(nn.Conv2d(64, out_channels, 7))
 
-    def forward(self, x, mask):
+    def forward(self, x: Any, mask):
+        """
+        Forward method \n
+        returns \n
+        (self.model(torch.cat((x, mask), 1)) + x).tanh()"""
         return (self.model(torch.cat((x, mask), 1)) + x).tanh()
 
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels: int, layers_number=3) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        layers_number: int = 3,
+    ) -> None:
         super(Discriminator, self).__init__()
 
         self.model = nn.Sequential(
@@ -146,7 +175,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
         )
 
-        downsampling = (
+        downsampling_block = (
             nn.Conv2d(
                 in_channels := out_channels,
                 out_channels := out_channels * 2,
@@ -161,7 +190,7 @@ class Discriminator(nn.Module):
             raise Exception("layers_number should be greater than 0")
 
         for _ in range(layers_number):
-            self.model, *_ = map(self.model.append, downsampling)
+            self.model, *_ = map(self.model.append, downsampling_block)
 
         # classification layer
         self.model.append(
@@ -174,7 +203,7 @@ class Discriminator(nn.Module):
             )
         )
 
-    def forward(self, x):
+    def forward(self, x: Any):
         x = self.model(x)
         return F.avg_pool2d(x, x.size()[2:]).view(
             x.size()[0], -1

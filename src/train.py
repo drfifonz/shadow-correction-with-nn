@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from trainer import Trainer
 from utils.visualizer import Visualizer
-from utils.utils import QueueMask, allocate_memory, Buffer
+from utils.utils import QueueMask, Buffer
 
 
 def train(opt):
@@ -28,7 +28,7 @@ def train(opt):
         target_real,
         target_fake,
         mask_non_shadow,
-    ) = allocate_memory(opt)
+    ) = Trainer.allocate_memory(opt)
 
     # mask queue
     mask_queue = QueueMask(dataloader.__len__() / 4)
