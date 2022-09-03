@@ -6,6 +6,10 @@ from typing import Any
 
 
 class Deshadower(nn.Module):
+    """
+    Removes shadows from an image.
+    """
+
     def __init__(
         self,
         out_channels: int,
@@ -85,6 +89,11 @@ class Deshadower(nn.Module):
 
 
 class Shadower(nn.Module):
+    """
+    Generates shadows or rather recreates the missing part of the image
+    after Deshadower was applied
+    """
+
     def __init__(
         self,
         out_channels: int,
@@ -161,6 +170,12 @@ class Shadower(nn.Module):
 
 
 class Discriminator(nn.Module):
+    """
+    Used to differentiate between real image and image which was generated.
+    Is applied both to generated shadows and images with artificially patched space
+    after erasing the shadow.
+    """
+
     def __init__(
         self,
         in_channels: int,

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from PIL import Image
+# from PIL import Image
 from torch.autograd import Variable
 
 
@@ -48,6 +48,11 @@ class LR_lambda:
 
 # TODO description everywhere
 class QueueMask:
+    """
+    Queues masks used by Trainer to instantiate real
+    and fake masks to be used during training.
+    """
+
     def __init__(self, lenght: int) -> None:
         self.max_len = lenght
         self.queue = []
