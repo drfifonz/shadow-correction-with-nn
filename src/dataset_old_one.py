@@ -21,11 +21,16 @@ def image_loader(image_path: str):
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, root, loader, transforms_=None, target_transform=None):
+    def __init__(self, root: str, loader, transforms_=None, target_transform=None):
 
+        # print("------------")
+        # print(type(create_dataset(root)))
+        # print(len(list(create_dataset(root))))
+        # print("------------")
         images = create_dataset(root)
-        if len(images == 0):
-            raise (RuntimeError(f"No files in: {root}"))
+        # print(len(images))
+        # if len(images == 0):
+        #     raise (RuntimeError(f"No files in: {root}"))
 
         self.root = root
         self.loader = loader
