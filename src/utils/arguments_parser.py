@@ -36,6 +36,9 @@ def arguments_parser():
         type=int,
         help="epoch to start linearly decaying the learning rate to 0",
     )
+    parser.add_argument(
+        "--iteration_loss", type=int, default=500, help="avarage loss for n iterations"
+    )
 
     return parser.parse_args()
 

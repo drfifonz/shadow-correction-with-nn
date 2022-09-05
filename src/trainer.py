@@ -107,6 +107,7 @@ class Trainer:
         mask_non_shadow: torch.Tensor,
         mask_queue: QueueMask,
         target_real: torch.Tensor,
+        gen_losses_temp,
         gan_loss_criterion=nn.MSELoss,
         cycle_loss_criterion=nn.L1Loss,
         identity_loss_criterion=nn.L1Loss,
@@ -151,7 +152,19 @@ class Trainer:
         )
         gen_loss.backward()
 
+        gen_losses_temp += gen_loss.item()
+
         self.optimizer_gen.step()
+
+        return (
+            gen_loss,
+            identity_loss_mask,
+            identity_loss_shadow,
+            loss_gen_shadow_to_free,
+            loss_gen_free_to_shadow,
+            loss_cycle_mask,
+            loss_cycle_shadow,
+        )
 
     def run_one_batch_for_discriminator_s2f(
         self,
@@ -162,6 +175,7 @@ class Trainer:
         fake_shadow_buff: Buffer,
         mask_queue: QueueMask,
         gan_loss_criterion: nn.MSELoss,
+        disc_s2f_losses_temp,
     ):
         # zero_grad()
         self.optimizer_disc_deshadower.zero_grad()
@@ -179,7 +193,10 @@ class Trainer:
         # Total loss
         loss_disc = (loss_disc_real + loss_disc_fake) / 2.0
         loss_disc.backward()
+        disc_s2f_losses_temp += loss_disc.item()
         self.discriminator_optimizer.step()
+
+        return loss_disc
 
     def run_one_batch_for_discriminator_f2s(
         self,
@@ -190,6 +207,7 @@ class Trainer:
         fake_mask_buff: Buffer,
         mask_queue: QueueMask,
         gan_loss_criterion: nn.MSELoss,
+        disc_f2s_losses_temp,
     ):
         # zero_grad()
         self.optimizer_disc_shadower.zero_grad()
@@ -207,7 +225,10 @@ class Trainer:
         # Total loss
         loss_disc = (loss_disc_real + loss_disc_fake) / 2.0
         loss_disc.backward()
+        disc_f2s_losses_temp += loss_disc.item()
         self.discriminator_optimizer.step()
+
+        return loss_disc
 
     # TODO description
     def discriminator_optimizer(
