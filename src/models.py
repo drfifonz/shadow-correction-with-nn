@@ -8,8 +8,8 @@ from typing import Any
 class Deshadower(nn.Module):
     def __init__(
         self,
-        out_channels: int,
-        in_channels: int = 64,
+        out_channels: int = 3,
+        in_channels: int = 3,
         res_blocks: int = 9,
         downsampling_iterations: int = 2,
         upsampling_iterations: int = 2,
@@ -19,40 +19,55 @@ class Deshadower(nn.Module):
         # Initial conv layer
         self.model = nn.Sequential(
             nn.ReflectionPad2d(3),
-            nn.Conv2d(in_channels, 64, 7),
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=(out_features := 64),
+                kernel_size=7,
+            ),
             nn.InstanceNorm2d(64),
             nn.ReLU(inplace=True),
         )
-
         # downsampling
-        out_channels = in_channels * 2
+        # in_channels = 64
+        # out_channels = in_channels * 2
+
+        in_features = out_features
+        out_features = in_features * 2
+
+        print(f"in_features: {in_features}, out_features: {out_features}\tOK\n ")
 
         downsampling_block = (
             nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
+                in_channels=in_features,
+                out_channels=out_features,
                 kernel_size=3,
                 stride=2,
                 padding=1,
             ),
-            nn.InstanceNorm2d(out_channels),
+            nn.InstanceNorm2d(out_features),
             nn.ReLU(inplace=True),
         )
 
         for _ in range(downsampling_iterations):
             self.model, *_ = map(self.model.append, downsampling_block)
-            in_channels = out_channels
-            out_channels = in_channels * 2
+            # in_channels = out_channels
+            # out_channels = in_channels * 2
+            in_features = out_features
+            out_features = in_features * 2
+
+        print(
+            f"in_features: {in_features}, out_features: {out_features}\t after downsampling\n "
+        )
 
         # residual blocks
         residual_block = (
             nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, in_channels, kernel_size=3),
-            nn.InstanceNorm2d(in_channels),
+            nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=3),
+            nn.InstanceNorm2d(in_features),
             nn.ReLU(inplace=True),
             nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, in_channels, 3),
-            nn.InstanceNorm2d(in_channels),
+            nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=3),
+            nn.InstanceNorm2d(in_features),
         )
 
         if res_blocks <= 0:
@@ -61,27 +76,52 @@ class Deshadower(nn.Module):
         for _ in range(res_blocks):
             self.model, *_ = map(self.model.append, residual_block)
 
+        print(
+            f"in_features: {in_features}, out_features: {out_features}\tafter residual\n "
+        )
         # upsampling
-        out_channels = in_channels // 2
+        # out_channels = in_channels // 2
+        in_features = out_features
+
+        out_features = in_features // 2
+
+        print(
+            f"in_features: {in_features}, out_features: {out_features}\tb4 upsampling\n "
+        )
+        # print("upsampling block")
         upsampling_block = (
             nn.ConvTranspose2d(
-                in_channels, out_channels, 3, stride=2, padding=1, output_padding=1
+                in_channels=in_features,
+                out_channels=out_features,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                output_padding=1,
             ),
-            nn.InstanceNorm2d(out_channels),
+            nn.InstanceNorm2d(out_features),
             nn.ReLU(inplace=True),
         )
 
         for _ in range(upsampling_iterations):
             self.model, *_ = map(self.model.append, upsampling_block)
-            in_channels = out_channels
-            out_channels = in_channels // 2
+            # in_channels = out_channels
+            # out_channels = in_channels // 2
+            in_features = out_features
+            out_features = in_features // 2
+        print(
+            f"in_features: {in_features}, out_features: {out_features}\tafter upsampling\n "
+        )
 
         # output layer
         self.model.append(nn.ReflectionPad2d(3))
         self.model.append(nn.Conv2d(64, out_channels, 7))
 
-    def forward(self, x: Any):
-        return (self.model(x) + x).tanh()
+    def forward(self, x: torch.Tensor):
+        print(x.shape)
+
+        # could be something wrong with forward function
+
+        return (self.model(x) + x).tanh
 
 
 class Shadower(nn.Module):

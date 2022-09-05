@@ -107,9 +107,9 @@ class Trainer:
         mask_non_shadow: torch.Tensor,
         mask_queue: QueueMask,
         target_real: torch.Tensor,
-        gan_loss_criterion: nn.MSELoss,
-        cycle_loss_criterion: nn.L1Loss,
-        identity_loss_criterion: nn.L1Loss,
+        gan_loss_criterion=nn.MSELoss,
+        cycle_loss_criterion=nn.L1Loss,
+        identity_loss_criterion=nn.L1Loss,
     ):
         self.optimizer_gen.zero_grad()
 
