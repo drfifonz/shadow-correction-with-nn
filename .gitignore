@@ -1,5 +1,5 @@
 .vscode/*
-.env
+# .env
 __pycache__
 data
 test

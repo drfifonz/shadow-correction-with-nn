@@ -107,12 +107,16 @@ class Trainer:
         mask_non_shadow: torch.Tensor,
         mask_queue: QueueMask,
         target_real: torch.Tensor,
-        gan_loss_criterion: nn.MSELoss,
-        cycle_loss_criterion: nn.L1Loss,
-        identity_loss_criterion: nn.L1Loss,
         gen_losses_temp,
+        gan_loss_criterion=nn.MSELoss,
+        cycle_loss_criterion=nn.L1Loss,
+        identity_loss_criterion=nn.L1Loss,
     ):
         self.optimizer_gen.zero_grad()
+
+        print(
+            f"Sizes: \n Real_mask:\t\t{real_mask.size()}\n Mask_non_shadow:\t{mask_non_shadow.size()}\n Real_shadow:\t\t{real_shadow.size()}\n"
+        )
 
         same_mask = self.generator_shadow_to_free(real_shadow)
         same_shadow = self.generator_free_to_shadow(real_mask, mask_non_shadow)
