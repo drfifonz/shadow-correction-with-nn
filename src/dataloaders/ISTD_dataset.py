@@ -24,7 +24,7 @@ class ISTD_Dataset(torch.utils.data.Dataset):
 
 
         item_shadow = self.transform(
-            Image.open(
+            self.__image_loader(
                 self.root_shadow_imgs
                 + "/"
                 + self.shadow_files[index % len(self.shadow_files)]

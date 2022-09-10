@@ -114,6 +114,10 @@ class Trainer:
     ):
         self.optimizer_gen.zero_grad()
 
+        print(
+            f"Sizes: \n Real_mask:\t\t{real_mask.size()}\n Mask_non_shadow:\t{mask_non_shadow.size()}\n Real_shadow:\t\t{real_shadow.size()}\n"
+        )
+
         same_mask = self.generator_shadow_to_free(real_shadow)
         same_shadow = self.generator_free_to_shadow(real_mask, mask_non_shadow)
 
