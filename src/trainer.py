@@ -119,7 +119,8 @@ class Trainer:
         )
         # tutaj cos jest źle
         same_mask = self.generator_shadow_to_free(real_mask)
-        same_shadow = self.generator_free_to_shadow(real_mask, mask_non_shadow)
+        # TODO (real_mask, mask_non_shadow) b4
+        same_shadow = self.generator_free_to_shadow(real_shadow, mask_non_shadow)
         print("----------------------------\n", "same_mask & same_shadow")
         print(type(same_mask))
         # print(type(same_mask))
@@ -157,6 +158,7 @@ class Trainer:
 
         # Cycle loss
         print("q len:", len(mask_queue.queue))
+
         recovered_shadow = self.generator_free_to_shadow(
             fake_mask, mask_queue.last_item()
         )
@@ -188,6 +190,8 @@ class Trainer:
             loss_gen_free_to_shadow,
             loss_cycle_mask,
             loss_cycle_shadow,
+            fake_shadow,
+            fake_mask,
         )
 
     def run_one_batch_for_discriminator_s2f(
@@ -200,16 +204,18 @@ class Trainer:
         mask_queue: QueueMask,
         gan_loss_criterion: nn.MSELoss,
         disc_s2f_losses_temp,
+        fake_shadow,
     ):
         # zero_grad()
         self.optimizer_disc_deshadower.zero_grad()
-
+        print("ELOOO DYSKRYMINATOR S2F")
         # Real loss
         prediction_real = self.discriminator_shadow_to_free(real_shadow)
         loss_disc_real = gan_loss_criterion(prediction_real, target_real)
 
         # Fake loss
-        fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
+        # i get fake_shadow as an argument
+        # fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
         fake_shadow = fake_shadow_buff.push_and_pop(fake_shadow)
         prediction_fake = self.discriminator_shadow_to_free(fake_shadow.detach())
         loss_disc_fake = gan_loss_criterion(prediction_fake, target_fake)
@@ -217,9 +223,10 @@ class Trainer:
         # Total loss
         loss_disc = (loss_disc_real + loss_disc_fake) / 2.0
         loss_disc.backward()
-        disc_s2f_losses_temp += loss_disc.item()
-        self.discriminator_optimizer.step()
 
+        disc_s2f_losses_temp += loss_disc.item()
+        # self.discriminator_optimizer.step()
+        self.optimizer_disc_deshadower.step()
         return loss_disc
 
     def run_one_batch_for_discriminator_f2s(
@@ -232,16 +239,17 @@ class Trainer:
         mask_queue: QueueMask,
         gan_loss_criterion: nn.MSELoss,
         disc_f2s_losses_temp,
+        fake_mask,
     ):
         # zero_grad()
         self.optimizer_disc_shadower.zero_grad()
-
+        print("ELOOO DYSKRYMINATOR F2S")
         # Real loss
         prediction_real = self.discriminator_free_to_shadow(real_mask)
         loss_disc_real = gan_loss_criterion(prediction_real, target_real)
 
         # Fake loss
-        fake_mask = self.generator_shadow_to_free(real_shadow, mask_queue.rand_item())
+        # fake_mask = self.generator_shadow_to_free(real_shadow, mask_queue.rand_item())
         fake_mask = fake_mask_buff.push_and_pop(fake_mask)
         prediction_fake = self.discriminator_free_to_shadow(fake_mask.detach())
         loss_disc_fake = gan_loss_criterion(prediction_fake, target_fake)
@@ -249,9 +257,11 @@ class Trainer:
         # Total loss
         loss_disc = (loss_disc_real + loss_disc_fake) / 2.0
         loss_disc.backward()
-        disc_f2s_losses_temp += loss_disc.item()
-        self.discriminator_optimizer.step()
 
+        disc_f2s_losses_temp += loss_disc.item()
+
+        # self.discriminator_optimizer.step()
+        self.optimizer_disc_shadower.step()
         return loss_disc
 
     # TODO description

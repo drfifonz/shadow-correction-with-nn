@@ -33,7 +33,7 @@ def mask_generator(
         torch.tensor((np.float32(diff >= L) - 0.5) / 0.5)
         .unsqueeze(0)
         .unsqueeze(0)
-        .cuda()
+        .cpu()
     )  # -1.0:non-shadow, 1.0:shadow
     mask.requires_grad = False
 

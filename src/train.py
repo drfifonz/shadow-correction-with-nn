@@ -110,6 +110,8 @@ def train(opt):
                 loss_gen_free_to_shadow,
                 loss_cycle_mask,
                 loss_cycle_shadow,
+                fake_shadow,
+                fake_mask,
             ) = trainer.run_one_batch_for_generator(
                 real_shadow,
                 real_mask,
@@ -129,7 +131,9 @@ def train(opt):
                 target_fake,
                 fake_shadow_buff,
                 mask_queue,
+                gan_loss_criterion,
                 disc_s2f_losses_temp,
+                fake_shadow,
             )
 
             loss_disc_f2s = trainer.run_one_batch_for_discriminator_f2s(
@@ -139,7 +143,9 @@ def train(opt):
                 target_fake,
                 fake_mask_buff,
                 mask_queue,
+                gan_loss_criterion,
                 disc_f2s_losses_temp,
+                fake_mask,
             )
             # discriminator can be used less time than generator
 
