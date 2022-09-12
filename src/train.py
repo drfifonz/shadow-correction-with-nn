@@ -13,6 +13,7 @@ from trainer import Trainer
 from utils.utils import Buffer, QueueMask
 from utils.visualizer import Visualizer
 
+torch.cuda.empty_cache()
 
 load_dotenv()
 
@@ -54,11 +55,24 @@ def train(opt):
         target_fake,
         mask_non_shadow,
     ) = Trainer.allocate_memory(opt)
-
+    print("Alocate memory")
+    print("input_shadow\t\t", input_shadow.size())
+    print("input_mask\t\t", input_mask.size())
+    print("target_real\t\t", target_real.size())
+    print("target_fake\t\t", target_fake.size())
+    print("mask_non_shadow\t\t", mask_non_shadow.size())
+    print("-------------------------------------")
     # mask queue
-    mask_queue = QueueMask(dataloader.__len__() / 4)
+    mask_queue = QueueMask(len(dataloader) // 4)
+    print("len: ", len(dataloader) // 4)
     fake_shadow_buff = Buffer()
     fake_mask_buff = Buffer()
+
+    (
+        gan_loss_criterion,
+        cycle_loss_criterion,
+        identity_loss_criterion,
+    ) = Trainer.critirion_init()
 
     # iteration counter
     current_it = 0
@@ -82,6 +96,10 @@ def train(opt):
             real_shadow = Variable(input_shadow.copy_(data["Shadow"]))
             real_mask = Variable(input_mask.copy_(data["Shadow-free"]))
 
+            # print("**************************************")
+            # print(real_mask.size())
+            # print("**************************************")
+
             # training part
             # TODO changed for log
             (
@@ -99,6 +117,9 @@ def train(opt):
                 mask_queue,
                 target_real,
                 gen_losses_temp,
+                gan_loss_criterion,
+                cycle_loss_criterion,
+                identity_loss_criterion,
             )
 
             loss_disc_s2f = trainer.run_one_batch_for_discriminator_s2f(

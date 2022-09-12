@@ -24,10 +24,10 @@ class Trainer:
     def __init__(self, opt) -> None:
         self.opt = opt
         # networks
-        self.generator_shadow_to_free = models.Deshadower(
+        self.generator_shadow_to_free = models.Generator_S2F(
             in_channels=opt.in_channels, out_channels=opt.out_channels
         )
-        self.generator_free_to_shadow = models.Shadower(
+        self.generator_free_to_shadow = models.Generator_F2S(
             in_channels=opt.in_channels, out_channels=opt.out_channels
         )
         self.discriminator_shadow_to_free = models.Discriminator(
@@ -66,7 +66,7 @@ class Trainer:
         # self.__optimizers_init()
         # self.__learning_rate_schedulers_init(opt)
 
-    def critirion_init(self) -> tuple:
+    def critirion_init() -> tuple:
         """
         initializes loss creterion
         """
@@ -108,18 +108,24 @@ class Trainer:
         mask_queue: QueueMask,
         target_real: torch.Tensor,
         gen_losses_temp,
-        gan_loss_criterion=nn.MSELoss,
-        cycle_loss_criterion=nn.L1Loss,
-        identity_loss_criterion=nn.L1Loss,
+        gan_loss_criterion,
+        cycle_loss_criterion,
+        identity_loss_criterion,
     ):
         self.optimizer_gen.zero_grad()
 
         print(
             f"Sizes: \n Real_mask:\t\t{real_mask.size()}\n Mask_non_shadow:\t{mask_non_shadow.size()}\n Real_shadow:\t\t{real_shadow.size()}\n"
         )
-
-        same_mask = self.generator_shadow_to_free(real_shadow)
+        # tutaj cos jest źle
+        same_mask = self.generator_shadow_to_free(real_mask)
         same_shadow = self.generator_free_to_shadow(real_mask, mask_non_shadow)
+        print("----------------------------\n", "same_mask & same_shadow")
+        print(type(same_mask))
+        # print(type(same_mask))
+        print(same_shadow.size())
+        # print(f"same_mask:\t\t{same_mask.size()}")
+        # print(f"same_shadow:\t\t{same_shadow.size()}")
 
         # Identity loss
         identity_loss_mask = identity_loss_criterion(same_mask, real_mask) * 5.0
@@ -132,11 +138,25 @@ class Trainer:
         loss_gen_shadow_to_free = gan_loss_criterion(pred_fake, target_real)
         mask_queue.insert(mask_generator(real_shadow, fake_mask))
 
+        print("________________________________________")
+        print("IM HERE")
+        print("q len:", len(mask_queue.queue))
+        # print("real_mask: \t", real_mask.size(), "\ttype\t: ", type(real_mask))
+        # print("mask_queue: \t", mask_queue.rand_item().size())
+        # print(mask_queue.rand_item())
+        # print(type(mask_queue.rand_item()))
+
+        # print("________________________________________")
+
         fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
+
+        print("q len:", len(mask_queue.queue))
+
         pred_fake = self.discriminator_shadow_to_free(fake_shadow)
         loss_gen_free_to_shadow = gan_loss_criterion(pred_fake, target_real)
 
         # Cycle loss
+        print("q len:", len(mask_queue.queue))
         recovered_shadow = self.generator_free_to_shadow(
             fake_mask, mask_queue.last_item()
         )
@@ -258,6 +278,10 @@ class Trainer:
         input_mask = Tensor(opt.batch_size, opt.out_channels, opt.size, opt.size)
         target_real = Variable(Tensor(opt.batch_size).fill_(1.0), requires_grad=False)
         target_fake = Variable(Tensor(opt.batch_size).fill_(0.0), requires_grad=False)
+        # mask_non_shadow = Variable(
+        #     Tensor(opt.batch_size, 1, opt.size, opt.size).fill_(-1.0),
+        #     requires_grad=False,
+        # )
         mask_non_shadow = Variable(
             Tensor(opt.batch_size, 1, opt.size, opt.size).fill_(-1.0),
             requires_grad=False,
