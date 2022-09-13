@@ -1,4 +1,5 @@
 import itertools
+from typing import List
 import models
 import torch
 import torch.nn as nn
@@ -7,6 +8,7 @@ from utils.utils import mask_generator, weights_init
 from utils.utils import LR_lambda
 from utils.utils import QueueMask
 from utils.utils import Buffer
+
 
 # TODO clean up & add comments & rename some variables
 # TODO maybe create dedicated discriminator's optimizers
@@ -298,19 +300,154 @@ class Trainer:
         )
         return [input_shadow, input_mask, target_real, target_fake, mask_non_shadow]
 
-    def update_lr_per_epoch():
-        pass
+    def update_lr_per_epoch(lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d):
+        """
+        Updates learning rates per epoch and returns them as a list.
+        """
+        print("Updating learning rates\n")
+        lr_scheduler_gen.step()
+        lr_scheduler_disc_s.step()
+        lr_scheduler_disc_d.step()
+
+        return [lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d]
 
     def update_lr_per_batch():
         pass
 
-    def save_training_state(self, training_state_path, epoch_n, *networks):
-        """
-        saving state of networks after epoch training
-        https://pytorch.org/tutorials/beginner/saving_loading_models.html
-        """
+    # def save_training_state(self, training_state_path, epoch_n, *networks):
+    #     """
+    #     saving state of networks after epoch training
+    #     https://pytorch.org/tutorials/beginner/saving_loading_models.html
+    #     """
 
-        pass
+    #     pass
+
+    def save_training_state(
+        self,
+        training_state_path: str,
+        networks,
+        optimizers: List[torch.Adam],
+        learning_rates: List[torch.LambdaLR],
+    ):
+        """
+        Saves the state of the training. It takes a string path as a parameter, \n
+        ------------------------------- \n
+        networks in the following order:\n
+        [
+        generator_free_to_shadow, \n
+        generator_shadow_to_free. \n
+        discriminator_free_to_shadow,\n
+        discriminator_shadow_to_free
+        ].\n
+        ------------------------------- \n
+        Optimizers in the following order: \n
+        [
+        optimizer_gen, \n
+        optimizer_disc_deshadower, \n
+        optimizer_disc_shadower
+        ]\n
+        ------------------------------- \n
+        Learning rates in the following order: \n
+        [
+        lr_scheduler_gen, \n
+        lr_scheduler_disc_s, \n
+        lr_scheduler_disc_d \n
+        ]
+        """
+        print("Saving training state...\n")
+        # saving networks
+        torch.save(networks[0].state_dict(), f"{training_state_path}/gen_f2s.pth")
+        torch.save(networks[1].state_dict(), f"{training_state_path}/gen_s2f.pth")
+        torch.save(networks[2].state_dict(), f"{training_state_path}/disc_f2s.pth")
+        torch.save(networks[3].state_dict(), f"{training_state_path}/disc_s2f.pth")
+
+        # saving oprimizers
+        torch.save(optimizers[0].state_disc(), f"{training_state_path}/optim_gen.pth")
+        torch.save(
+            optimizers[1].state_disc(), f"{training_state_path}/optim_disc_d.pth"
+        )
+        torch.save(
+            optimizers[2].state_disc(), f"{training_state_path}/optim_disc_s.pth"
+        )
+
+        # saving lr schedulers
+        torch.save(learning_rates[0].state_dict(), f"{training_state_path}/lr_gen.pth")
+        torch.save(
+            learning_rates[1].state_dict(), f"{training_state_path}/lr_disc_s.pth"
+        )
+        torch.save(
+            learning_rates[2].state_dict(), f"{training_state_path}/lr_disc_d.pth"
+        )
+
+    def resume_training_state(
+        self,
+        training_state_path: str,
+        networks,
+        optimizers: List[torch.Adam],
+        learning_rates: List[torch.LambdaLR],
+    ):
+        """
+        Resumes training state. It takes training_state_path string as an argument and: \n
+        networks in the following order:\n
+        [
+        generator_free_to_shadow, \n
+        generator_shadow_to_free. \n
+        discriminator_free_to_shadow,\n
+        discriminator_shadow_to_free
+        ].\n
+        ------------------------------- \n
+        Optimizers in the following order: \n
+        [
+        optimizer_gen, \n
+        optimizer_disc_deshadower, \n
+        optimizer_disc_shadower
+        ]\n
+        ------------------------------- \n
+        Learning rates in the following order: \n
+        [
+        lr_scheduler_gen, \n
+        lr_scheduler_disc_s, \n
+        lr_scheduler_disc_d \n
+        ]
+        """
+        print("Resuming training state\n")
+        # resumimg networks state
+        networks[0].load_state_dict(torch.load(f"{training_state_path}/gen_f2s.pth"))
+        networks[0].eval()
+        networks[1].load_state_dict(torch.load(f"{training_state_path}/gen_s2f.pth"))
+        networks[1].eval()
+        networks[2].load_state_dict(torch.load(f"{training_state_path}/disc_f2s.pth"))
+        networks[2].eval()
+        networks[3].load_state_dict(torch.load(f"{training_state_path}/disc_s2f.pth"))
+        networks[3].eval()
+
+        # resumimg optimiers state
+        optimizers[0].load_state_dict(
+            torch.load(f"{training_state_path}/optim_gen.pth")
+        )
+        optimizers[0].eval()
+        optimizers[1].load_state_dict(
+            torch.load(f"{training_state_path}/optim_disc_d.pth")
+        )
+        optimizers[1].eval()
+        optimizers[2].load_state_dict(
+            torch.load(f"{training_state_path}/optim_disc_s.pth")
+        )
+        optimizers[2].eval()
+
+        # resumimg learning rates state
+        learning_rates[0].load_state_dict(
+            torch.load(f"{training_state_path}/lr_gen.pth")
+        )
+        learning_rates[0].eval()
+        learning_rates[1].load_state_dict(
+            torch.load(f"{training_state_path}/lr_disc_d.pth")
+        )
+        learning_rates[1].eval()
+        learning_rates[2].load_state_dict(
+            torch.load(f"{training_state_path}/lr_disc_s.pth")
+        )
+        learning_rates[2].eval()
 
     def load_training_state(self, training_state_path, *networks):
         """
@@ -318,7 +455,7 @@ class Trainer:
         """
         pass
 
-    def resume_training_state(self, anything):
+    def resume_training_state_(self, anything):
         """
         resume state from certain epoch
         """

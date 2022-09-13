@@ -25,8 +25,33 @@ def train(opt):
     training model
     """
 
+    trainer = Trainer(opt)
+    visualizer = Visualizer(opt)
+
+    # TODO dont know about the epoch
+    (
+        lr_scheduler_gen,
+        lr_scheduler_disc_s,
+        lr_scheduler_disc_d,
+    ) = trainer.learning_rate_schedulers_init(opt, current_epoch=0)
+
     if opt.resume:
         # temporary solution
+        trainer.resume_training_state(
+            "./saved_training_state",
+            [
+                trainer.generator_free_to_shadow,
+                trainer.generator_shadow_to_free,
+                trainer.discriminator_free_to_shadow,
+                trainer.discriminator_shadow_to_free,
+            ],
+            [
+                trainer.optimizer_gen,
+                trainer.optimizer_disc_deshadower,
+                trainer.optimizer_disc_shadower,
+            ],
+            [lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d],
+        )
         epoch_start = 3
     else:
         epoch_start = 0
@@ -44,9 +69,6 @@ def train(opt):
         ISTD_Dataset(root=ISTD_PATH, transforms_list=transformation_list)
     )
 
-    trainer = Trainer(opt)
-    visualizer = Visualizer(opt)
-
     # memory allocation
     (
         input_shadow,
@@ -55,6 +77,7 @@ def train(opt):
         target_fake,
         mask_non_shadow,
     ) = Trainer.allocate_memory(opt)
+
     print("Alocate memory")
     print("input_shadow\t\t", input_shadow.size())
     print("input_mask\t\t", input_mask.size())
@@ -173,7 +196,31 @@ def train(opt):
                     f"Last {opt.iteration_loss} iterations: \n, gen loss: {gen_losses[gen_losses.__len__()-1]}, disc s2f loss: {disc_s2f_losses[disc_s2f_losses.__len__()-1]}, disc f2s loss: {disc_f2s_losses[disc_f2s_losses.__len__()-1]}"
                 )
 
-                # saving images
+                # TODO saving images
+                visualizer.save_images("images_generated", torch.random(2, 3))
 
-        # update lr
+        # update learning rates
+        (
+            lr_scheduler_gen,
+            lr_scheduler_disc_s,
+            lr_scheduler_disc_d,
+        ) = trainer.update_lr_per_epoch(
+            lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d
+        )
+
         # saving epoch state
+        trainer.save_training_state(
+            "./saved_training_state",
+            [
+                trainer.generator_free_to_shadow,
+                trainer.generator_shadow_to_free,
+                trainer.discriminator_free_to_shadow,
+                trainer.discriminator_shadow_to_free,
+            ],
+            [
+                trainer.optimizer_gen,
+                trainer.optimizer_disc_deshadower,
+                trainer.optimizer_disc_shadower,
+            ],
+            [lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d],
+        )
