@@ -18,10 +18,10 @@ def mask_generator(
     generate mask image from shadow and shadow free image
     """
     image_free = tf_to_grayscale(
-        tf_to_PIL(((shadow_free_img.data.squeeze(0) + 1) * 0.5).cpu())
+        tf_to_PIL(((shadow_free_img.data.squeeze(0) + 1) * 0.5).cuda())
     )
     image_shadow = tf_to_grayscale(
-        tf_to_PIL(((shadow_img.data.squeeze(0) + 1) * 0.5).cpu())
+        tf_to_PIL(((shadow_img.data.squeeze(0) + 1) * 0.5).cuda())
     )
 
     diff = np.asarray(image_free, dtype="float32") - np.asarray(
@@ -33,7 +33,7 @@ def mask_generator(
         torch.tensor((np.float32(diff >= L) - 0.5) / 0.5)
         .unsqueeze(0)
         .unsqueeze(0)
-        .cpu()
+        .cuda()
     )  # -1.0:non-shadow, 1.0:shadow
     mask.requires_grad = False
 
@@ -84,12 +84,12 @@ class QueueMask:
         self.queue = []
 
     def insert(self, mask):
-        print("insert works")
-        print("Mask:", type(mask))
+        # print("insert works")
+        # print("Mask:", type(mask))
         if self.queue.__len__() >= self.max_len:
             self.queue.pop(0)
         self.queue.append(mask)
-        print("q len: ", len(self.queue))
+        # print("q len: ", len(self.queue))
 
     def rand_item(self):
         assert len(self.queue) > 0

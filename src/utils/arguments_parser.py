@@ -10,7 +10,7 @@ def arguments_parser():
     description = "Parser"
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("--type", type=str, default="test", help="[test/train]")
+    parser.add_argument("--type", type=str, default="train", help="[test/train]")
     parser.add_argument("--resume", action="store_true", help="resume training")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     parser.add_argument(

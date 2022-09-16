@@ -464,9 +464,12 @@ class Generator_F2S(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x, mask):
-        return (
-            self.model(torch.cat((x, mask), 1)) + x
-        ).tanh()  # (min=-1, max=1) #just learn a residual
+        with torch.no_grad():
+            output = (self.model(torch.cat((x, mask), 1)) + x).tanh()
+        # return (
+        #     self.model(torch.cat((x, mask), 1)) + x
+        # ).tanh()  # (min=-1, max=1) #just learn a residual
+        return output
 
 
 class Discriminator(nn.Module):
@@ -530,6 +533,10 @@ class Discriminator(nn.Module):
         # print("_______________________________")
 
     def forward(self, x: Any):
+        # with torch.no_grad():
+        #     x = self.model(x)
+        #     output = F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+        # return output
         x = self.model(x)
         return F.avg_pool2d(x, x.size()[2:]).view(
             x.size()[0], -1

@@ -1,5 +1,8 @@
 from datetime import datetime
+from os import get_terminal_size, terminal_size
+
 from torchvision.utils import save_image
+import torch.cuda as cuda
 
 
 class Visualizer:
@@ -46,3 +49,31 @@ def get_current_date_string() -> str:
     hour_string = "{:02d}:{:02d}:{:02d}".format(date.hour, date.minute, date.second)
 
     return day_string + "-" + hour_string
+
+
+def print_memory_status(optional_title_message: str = None) -> None:
+    """
+    printing status of allocated & cashed memory in cuda
+    """
+
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    RESET_COLOR = "\033[0;0m"
+
+    terminal_size = get_terminal_size()
+    print("\u2500" * terminal_size.columns)
+
+    if optional_title_message:
+        print(GREEN + optional_title_message + RESET_COLOR)
+
+    print(
+        RED + "CUDA memory allocated" + RESET_COLOR,
+        f":\t {cuda.memory_allocated()}",
+        sep="",
+    )
+    print(
+        RED + "CUDA memory cashed" + RESET_COLOR,
+        f":\t {cuda.memory_reserved()}",
+        sep="",
+    )
+    print("\u2500" * terminal_size.columns)

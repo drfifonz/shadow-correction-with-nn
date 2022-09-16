@@ -8,6 +8,7 @@ from utils.utils import mask_generator, weights_init
 from utils.utils import LR_lambda
 from utils.utils import QueueMask
 from utils.utils import Buffer
+from utils.visualizer import print_memory_status
 
 
 # TODO clean up & add comments & rename some variables
@@ -95,15 +96,15 @@ class Trainer:
         # lr schedulers
         lr_scheduler_gen = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_gen,
-            lr_lambda=LR_lambda(50, 0, 25).step(current_epoch),
+            lr_lambda=LR_lambda(50, 0, 25).step,
         )
         lr_scheduler_disc_s = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_disc_shadower,
-            lr_lambda=LR_lambda(50, 0, 25).step(current_epoch),
+            lr_lambda=LR_lambda(50, 0, 25).step,
         )
         lr_scheduler_disc_d = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_disc_deshadower,
-            lr_lambda=LR_lambda(50, 0, 25).step(current_epoch),
+            lr_lambda=LR_lambda(50, 0, 25).step,
         )
         return lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d
 
@@ -122,17 +123,18 @@ class Trainer:
     ):
         self.optimizer_gen.zero_grad()
 
-        print(
-            f"Sizes: \n Real_mask:\t\t{real_mask.size()}\n Mask_non_shadow:\t{mask_non_shadow.size()}\n Real_shadow:\t\t{real_shadow.size()}\n"
-        )
+        # print(
+        #     f"Sizes: \n Real_mask:\t\t{real_mask.size()}\n Mask_non_shadow:\t{mask_non_shadow.size()}\n Real_shadow:\t\t{real_shadow.size()}\n"
+        # )
         # tutaj cos jest źle
         same_mask = self.generator_shadow_to_free(real_mask)
         # TODO (real_mask, mask_non_shadow) b4
+        print_memory_status("after shadow_to_free")
         same_shadow = self.generator_free_to_shadow(real_shadow, mask_non_shadow)
-        print("----------------------------\n", "same_mask & same_shadow")
-        print(type(same_mask))
+        # print("----------------------------\n", "same_mask & same_shadow")
         # print(type(same_mask))
-        print(same_shadow.size())
+        # print(type(same_mask))
+        # print(same_shadow.size())
         # print(f"same_mask:\t\t{same_mask.size()}")
         # print(f"same_shadow:\t\t{same_shadow.size()}")
 
@@ -147,9 +149,9 @@ class Trainer:
         loss_gen_shadow_to_free = gan_loss_criterion(pred_fake, target_real)
         mask_queue.insert(mask_generator(real_shadow, fake_mask))
 
-        print("________________________________________")
-        print("IM HERE")
-        print("q len:", len(mask_queue.queue))
+        # print("________________________________________")
+        # print("IM HERE")
+        # print("q len:", len(mask_queue.queue))
         # print("real_mask: \t", real_mask.size(), "\ttype\t: ", type(real_mask))
         # print("mask_queue: \t", mask_queue.rand_item().size())
         # print(mask_queue.rand_item())
@@ -159,13 +161,13 @@ class Trainer:
 
         fake_shadow = self.generator_free_to_shadow(real_mask, mask_queue.rand_item())
 
-        print("q len:", len(mask_queue.queue))
+        # print("q len:", len(mask_queue.queue))
 
         pred_fake = self.discriminator_shadow_to_free(fake_shadow)
         loss_gen_free_to_shadow = gan_loss_criterion(pred_fake, target_real)
 
         # Cycle loss
-        print("q len:", len(mask_queue.queue))
+        # print("q len:", len(mask_queue.queue))
 
         recovered_shadow = self.generator_free_to_shadow(
             fake_mask, mask_queue.last_item()
@@ -200,6 +202,7 @@ class Trainer:
             loss_cycle_shadow,
             fake_shadow,
             fake_mask,
+            gen_losses_temp,
         )
 
     def run_one_batch_for_discriminator_s2f(
@@ -216,7 +219,7 @@ class Trainer:
     ):
         # zero_grad()
         self.optimizer_disc_deshadower.zero_grad()
-        print("ELOOO DYSKRYMINATOR S2F")
+        # print("ELOOO DYSKRYMINATOR S2F")
         # Real loss
         prediction_real = self.discriminator_shadow_to_free(real_shadow)
         loss_disc_real = gan_loss_criterion(prediction_real, target_real)
@@ -235,7 +238,7 @@ class Trainer:
         disc_s2f_losses_temp += loss_disc.item()
         # self.discriminator_optimizer.step()
         self.optimizer_disc_deshadower.step()
-        return loss_disc
+        return loss_disc, disc_s2f_losses_temp
 
     def run_one_batch_for_discriminator_f2s(
         self,
@@ -251,7 +254,7 @@ class Trainer:
     ):
         # zero_grad()
         self.optimizer_disc_shadower.zero_grad()
-        print("ELOOO DYSKRYMINATOR F2S")
+        # print("ELOOO DYSKRYMINATOR F2S")
         # Real loss
         prediction_real = self.discriminator_free_to_shadow(real_mask)
         loss_disc_real = gan_loss_criterion(prediction_real, target_real)
@@ -270,7 +273,12 @@ class Trainer:
 
         # self.discriminator_optimizer.step()
         self.optimizer_disc_shadower.step()
-        return loss_disc
+        # x = loss_disc
+        # total_loss = 0
+        # total_loss += loss_disc.detach()
+        # del loss_disc
+        # return total_loss
+        return loss_disc, disc_f2s_losses_temp
 
     # TODO description
     def discriminator_optimizer(

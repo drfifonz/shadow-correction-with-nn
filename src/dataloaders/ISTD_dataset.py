@@ -13,9 +13,11 @@ class ISTD_Dataset(torch.utils.data.Dataset):
         self.transform = transforms.Compose(transforms_list)
         self.unaligned = unaligned
         self.root_shadow_imgs = root + "/" + mode + "/set_A"
+        # print(self.root_shadow_imgs)
         self.root_shadow_free_imgs = root + "/" + mode + "/set_C"
 
         self.shadow_files = sorted(os.listdir(self.root_shadow_imgs))
+        print(len(self.shadow_files))
         self.shadow_free_files = sorted(os.listdir(self.root_shadow_free_imgs))
 
 
@@ -57,12 +59,20 @@ class ISTD_Dataset(torch.utils.data.Dataset):
                 
         return max(len(self.shadow_files), len(self.shadow_free_files))
 
-    def __image_loader(self,image_path: str)-> Image.Image:
+    def __image_loader(self,image_path: str,
+    image_scale:float=1)-> Image.Image:
         """
         loading image by pillow and convert it to RGB
         """
         # https://github.com/python-pillow/Pillow/issues/835
-        return Image.open(image_path).convert("RGB")
+
+        image = Image.open(image_path)
+
+        width, height = image.size
+        # newsize = (int(width*image_scale),int(height*image_scale))
+        # image.resize(newsize)
+
+        return image.convert("RGB")
 
 
     

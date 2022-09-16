@@ -15,9 +15,10 @@ from utils.visualizer import Visualizer
 
 torch.cuda.empty_cache()
 
-load_dotenv()
+# load_dotenv()
 
-ISTD_PATH = os.environ.get("ISTD_DATASET_ROOT_PATH")
+istd = "./data/ISTD_Dataset"
+# ISTD_PATH = os.environ.get("ISTD_DATASET_ROOT_PATH")
 
 
 def train(opt):
@@ -66,7 +67,7 @@ def train(opt):
     ]
 
     dataloader = DataLoader(
-        ISTD_Dataset(root=ISTD_PATH, transforms_list=transformation_list)
+        ISTD_Dataset(root=istd, transforms_list=transformation_list)
     )
 
     # memory allocation
@@ -78,16 +79,16 @@ def train(opt):
         mask_non_shadow,
     ) = Trainer.allocate_memory(opt)
 
-    print("Alocate memory")
-    print("input_shadow\t\t", input_shadow.size())
-    print("input_mask\t\t", input_mask.size())
-    print("target_real\t\t", target_real.size())
-    print("target_fake\t\t", target_fake.size())
-    print("mask_non_shadow\t\t", mask_non_shadow.size())
-    print("-------------------------------------")
+    # print("Alocate memory")
+    # print("input_shadow\t\t", input_shadow.size())
+    # print("input_mask\t\t", input_mask.size())
+    # print("target_real\t\t", target_real.size())
+    # print("target_fake\t\t", target_fake.size())
+    # print("mask_non_shadow\t\t", mask_non_shadow.size())
+    # print("-------------------------------------")
     # mask queue
     mask_queue = QueueMask(len(dataloader) // 4)
-    print("len: ", len(dataloader) // 4)
+    # print("len: ", len(dataloader) // 4)
     fake_shadow_buff = Buffer()
     fake_mask_buff = Buffer()
 
@@ -135,6 +136,7 @@ def train(opt):
                 loss_cycle_shadow,
                 fake_shadow,
                 fake_mask,
+                gen_losses_temp,
             ) = trainer.run_one_batch_for_generator(
                 real_shadow,
                 real_mask,
@@ -146,8 +148,11 @@ def train(opt):
                 cycle_loss_criterion,
                 identity_loss_criterion,
             )
-
-            loss_disc_s2f = trainer.run_one_batch_for_discriminator_s2f(
+            total_loss_disc_s2f = 0
+            (
+                loss_disc_s2f,
+                disc_s2f_losses_temp,
+            ) = trainer.run_one_batch_for_discriminator_s2f(
                 real_shadow,
                 real_mask,
                 target_real,
@@ -158,8 +163,14 @@ def train(opt):
                 disc_s2f_losses_temp,
                 fake_shadow,
             )
+            total_loss_disc_s2f += loss_disc_s2f.detach()
+            del loss_disc_s2f
 
-            loss_disc_f2s = trainer.run_one_batch_for_discriminator_f2s(
+            total_loss_disc_f2s = 0
+            (
+                loss_disc_f2s,
+                disc_f2s_losses_temp,
+            ) = trainer.run_one_batch_for_discriminator_f2s(
                 real_shadow,
                 real_mask,
                 target_real,
@@ -170,16 +181,18 @@ def train(opt):
                 disc_f2s_losses_temp,
                 fake_mask,
             )
+            total_loss_disc_f2s += loss_disc_f2s.detach()
+            del loss_disc_f2s
             # discriminator can be used less time than generator
-
             # visualization part (plots.etc)
 
             # terminal plotting (probably need new class)
             current_it += 1
+            print(f"current_it: \t {current_it}")
             if (i + 1) % opt.iteration_loss == 0:
                 print(
                     f"Iteration: {current_it}, gen loss: {gen_loss}, loss identity gen: {identity_loss_shadow + identity_loss_mask}, loss gen s2f and f2s: {loss_gen_free_to_shadow+loss_gen_shadow_to_free},"
-                    f"Cycle loss: {loss_cycle_shadow + loss_cycle_mask}, loss disc: {loss_disc_f2s + loss_disc_s2f}"
+                    f"Cycle loss: {loss_cycle_shadow + loss_cycle_mask}, loss disc: {total_loss_disc_f2s + total_loss_disc_s2f}"
                 )
 
                 gen_losses.append(gen_losses_temp / opt.iteration_loss)
@@ -197,30 +210,39 @@ def train(opt):
                 )
 
                 # TODO saving images
-                visualizer.save_images("images_generated", torch.random(2, 3))
+                # visualizer.save_images("images_generated", torch.random(2, 3))
 
-        # update learning rates
-        (
-            lr_scheduler_gen,
-            lr_scheduler_disc_s,
-            lr_scheduler_disc_d,
-        ) = trainer.update_lr_per_epoch(
-            lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d
-        )
+            # update learning rates
+
+            lr_scheduler_gen.step()
+            lr_scheduler_disc_s.step()
+            lr_scheduler_disc_d.step()
+
+        # (
+        #     lr_scheduler_gen,
+        #     lr_scheduler_disc_s,
+        #     lr_scheduler_disc_d,
+        # ) = trainer.update_lr_per_epoch(
+        #     lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d
+        # )
 
         # saving epoch state
-        trainer.save_training_state(
-            "./saved_training_state",
-            [
-                trainer.generator_free_to_shadow,
-                trainer.generator_shadow_to_free,
-                trainer.discriminator_free_to_shadow,
-                trainer.discriminator_shadow_to_free,
-            ],
-            [
-                trainer.optimizer_gen,
-                trainer.optimizer_disc_deshadower,
-                trainer.optimizer_disc_shadower,
-            ],
-            [lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d],
-        )
+        # trainer.save_training_state(
+        #     "./saved_training_state",
+        #     [
+        #         trainer.generator_free_to_shadow,
+        #         trainer.generator_shadow_to_free,
+        #         trainer.discriminator_free_to_shadow,
+        #         trainer.discriminator_shadow_to_free,
+        #     ],
+        #     [
+        #         trainer.optimizer_gen,
+        #         trainer.optimizer_disc_deshadower,
+        #         trainer.optimizer_disc_shadower,
+        #     ],
+        #     [lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d],
+        # )
+    print(f"Epoch: {epoch} finished")
+
+
+print("finished training loop")
