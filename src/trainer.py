@@ -85,19 +85,25 @@ class Trainer:
         """
         Initializes learning rate schedulers
         """
+        # TODO restore hardcoded values to opt
+        # LR_lambda(opt.n_epochs, 0, opt.decay_epoch)
+
+        # TODO ISSUE
+        # problem might lay in step() function which returns float
+        # and the error states that 'float' object is not callable
 
         # lr schedulers
         lr_scheduler_gen = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_gen,
-            lr_lambda=LR_lambda(opt.n_epochs, 0, opt.decay_epoch).step(current_epoch),
+            lr_lambda=LR_lambda(50, 0, 25).step(current_epoch),
         )
         lr_scheduler_disc_s = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_disc_shadower,
-            lr_lambda=LR_lambda(opt.n_epochs, 0, opt.decay_epoch).step(current_epoch),
+            lr_lambda=LR_lambda(50, 0, 25).step(current_epoch),
         )
         lr_scheduler_disc_d = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer_disc_deshadower,
-            lr_lambda=LR_lambda(opt.n_epochs, 0, opt.decay_epoch).step(current_epoch),
+            lr_lambda=LR_lambda(50, 0, 25).step(current_epoch),
         )
         return lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d
 
@@ -326,8 +332,8 @@ class Trainer:
         self,
         training_state_path: str,
         networks,
-        optimizers: List[torch.Adam],
-        learning_rates: List[torch.LambdaLR],
+        optimizers: List[torch.optim.Adam],
+        learning_rates: List[torch.optim.lr_scheduler.LambdaLR],
     ):
         """
         Saves the state of the training. It takes a string path as a parameter, \n
@@ -383,8 +389,8 @@ class Trainer:
         self,
         training_state_path: str,
         networks,
-        optimizers: List[torch.Adam],
-        learning_rates: List[torch.LambdaLR],
+        optimizers: List[torch.optim.Adam],
+        learning_rates: List[torch.optim.lr_scheduler.LambdaLR],
     ):
         """
         Resumes training state. It takes training_state_path string as an argument and: \n
