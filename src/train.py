@@ -1,6 +1,6 @@
 import os
 import sys
-
+import matplotlib.pyplot as plt
 import torch
 import torchvision.transforms as transforms
 from dotenv import load_dotenv
@@ -15,10 +15,10 @@ from utils.visualizer import Visualizer
 
 torch.cuda.empty_cache()
 
-# load_dotenv()
+load_dotenv()
 
-istd = "./data/ISTD_Dataset"
-# ISTD_PATH = os.environ.get("ISTD_DATASET_ROOT_PATH")
+# istd = "./data/ISTD_Dataset"
+ISTD_PATH = os.environ.get("ISTD_DATASET_ROOT_PATH")
 
 
 def train(opt):
@@ -29,7 +29,6 @@ def train(opt):
     trainer = Trainer(opt)
     visualizer = Visualizer(opt)
 
-    # TODO dont know about the epoch
     (
         lr_scheduler_gen,
         lr_scheduler_disc_s,
@@ -37,7 +36,7 @@ def train(opt):
     ) = trainer.learning_rate_schedulers_init(opt, current_epoch=0)
 
     if opt.resume:
-        # temporary solution
+
         trainer.resume_training_state(
             "./saved_training_state",
             [
@@ -67,7 +66,8 @@ def train(opt):
     ]
 
     dataloader = DataLoader(
-        ISTD_Dataset(root=istd, transforms_list=transformation_list)
+        # ISTD_Dataset(root=istd, transforms_list=transformation_list)
+        ISTD_Dataset(root=ISTD_PATH, transforms_list=transformation_list)
     )
 
     # memory allocation
@@ -79,14 +79,6 @@ def train(opt):
         mask_non_shadow,
     ) = Trainer.allocate_memory(opt)
 
-    # print("Alocate memory")
-    # print("input_shadow\t\t", input_shadow.size())
-    # print("input_mask\t\t", input_mask.size())
-    # print("target_real\t\t", target_real.size())
-    # print("target_fake\t\t", target_fake.size())
-    # print("mask_non_shadow\t\t", mask_non_shadow.size())
-    # print("-------------------------------------")
-    # mask queue
     mask_queue = QueueMask(len(dataloader) // 4)
     # print("len: ", len(dataloader) // 4)
     fake_shadow_buff = Buffer()
@@ -100,6 +92,8 @@ def train(opt):
 
     # iteration counter
     current_it = 0
+    plt.ioff()
+    to_pil = transforms.ToPILImage()
 
     # temporary losses
     gen_losses_temp = 0
@@ -120,12 +114,6 @@ def train(opt):
             real_shadow = Variable(input_shadow.copy_(data["Shadow"]))
             real_mask = Variable(input_mask.copy_(data["Shadow-free"]))
 
-            # print("**************************************")
-            # print(real_mask.size())
-            # print("**************************************")
-
-            # training part
-            # TODO changed for log
             (
                 gen_loss,
                 identity_loss_mask,
@@ -164,7 +152,7 @@ def train(opt):
                 fake_shadow,
             )
             total_loss_disc_s2f += loss_disc_s2f.detach()
-            del loss_disc_s2f
+            # del loss_disc_s2f
 
             total_loss_disc_f2s = 0
             (
@@ -182,17 +170,14 @@ def train(opt):
                 fake_mask,
             )
             total_loss_disc_f2s += loss_disc_f2s.detach()
-            del loss_disc_f2s
-            # discriminator can be used less time than generator
-            # visualization part (plots.etc)
+            # del loss_disc_f2s
 
-            # terminal plotting (probably need new class)
             current_it += 1
             print(f"current_it: \t {current_it}")
             if (i + 1) % opt.iteration_loss == 0:
                 print(
-                    f"Iteration: {current_it}, gen loss: {gen_loss}, loss identity gen: {identity_loss_shadow + identity_loss_mask}, loss gen s2f and f2s: {loss_gen_free_to_shadow+loss_gen_shadow_to_free},"
-                    f"Cycle loss: {loss_cycle_shadow + loss_cycle_mask}, loss disc: {total_loss_disc_f2s + total_loss_disc_s2f}"
+                    f"[Iteration: {current_it:d}], [gen_loss: {gen_loss:.5f}], [loss_identity_gen: {(identity_loss_shadow + identity_loss_mask):.5f}], [loss_gen_s2f_and_f2s: {(loss_gen_free_to_shadow+loss_gen_shadow_to_free):.5f}],"
+                    f"[Cycle_loss: {(loss_cycle_shadow + loss_cycle_mask):.5f}], [loss_disc: {(total_loss_disc_f2s + total_loss_disc_s2f):.5f}]"
                 )
 
                 gen_losses.append(gen_losses_temp / opt.iteration_loss)
@@ -204,13 +189,18 @@ def train(opt):
                 disc_s2f_losses_temp = 0
                 disc_f2s_losses_temp = 0
 
-                print("Avarage log: \n")
+                # print("Avarage log: \n")
                 print(
-                    f"Last {opt.iteration_loss} iterations: \n, gen loss: {gen_losses[gen_losses.__len__()-1]}, disc s2f loss: {disc_s2f_losses[disc_s2f_losses.__len__()-1]}, disc f2s loss: {disc_f2s_losses[disc_f2s_losses.__len__()-1]}"
+                    f"[Last {opt.iteration_loss} iterations], [gen loss: {(gen_losses[len(gen_losses)-1]):.5f}], [disc s2f loss: {disc_s2f_losses[len(disc_s2f_losses)-1]}], disc f2s loss: {(disc_f2s_losses[len(disc_f2s_losses)-1]):.5f}"
                 )
 
-                # TODO saving images
-                # visualizer.save_images("images_generated", torch.random(2, 3))
+                img_fake_shadow = 0.5 * (fake_shadow.detach().data + 1.0)
+                img_fake_shadow = to_pil(img_fake_shadow.data.squeeze(0).cpu())
+                img_fake_shadow.save("output/fake_A.png")
+
+                img_fake_mask = 0.5 * (fake_mask.detach().data + 1.0)
+                img_fake_mask = to_pil(img_fake_mask.data.squeeze(0).cpu())
+                img_fake_mask.save("output/fake_B.png")
 
             # update learning rates
 
@@ -218,31 +208,70 @@ def train(opt):
             lr_scheduler_disc_s.step()
             lr_scheduler_disc_d.step()
 
-        # (
-        #     lr_scheduler_gen,
-        #     lr_scheduler_disc_s,
-        #     lr_scheduler_disc_d,
-        # ) = trainer.update_lr_per_epoch(
-        #     lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d
-        # )
+            # torch.save(
+            #     trainer.generator_shadow_to_free.state_dict(),
+            #     "./data/results1/netG_A2B.pth",
+            # )
+            # torch.save(
+            #     trainer.generator_free_to_shadow.state_dict(),
+            #     "./data/results1/netG_B2A.pth",
+            # )
+            # torch.save(
+            #     trainer.discriminator_shadow_to_free.state_dict(),
+            #     "./data/results1/netD_A.pth",
+            # )
+            # torch.save(
+            #     trainer.discriminator_free_to_shadow.state_dict(),
+            #     "./data/results1/netD_B.pth",
+            # )
 
-        # saving epoch state
-        # trainer.save_training_state(
-        #     "./saved_training_state",
-        #     [
-        #         trainer.generator_free_to_shadow,
-        #         trainer.generator_shadow_to_free,
-        #         trainer.discriminator_free_to_shadow,
-        #         trainer.discriminator_shadow_to_free,
-        #     ],
-        #     [
-        #         trainer.optimizer_gen,
-        #         trainer.optimizer_disc_deshadower,
-        #         trainer.optimizer_disc_shadower,
-        #     ],
-        #     [lr_scheduler_gen, lr_scheduler_disc_s, lr_scheduler_disc_d],
-        # )
-    print(f"Epoch: {epoch} finished")
+            # torch.save(
+            #     trainer.optimizer_gen.state_dict(), "./data/results1/optimizer_G.pth"
+            # )
+            # torch.save(
+            #     trainer.optimizer_disc_deshadower.state_dict(),
+            #     "./data/results1/optimizer_D_A.pth",
+            # )
+            # torch.save(
+            #     trainer.optimizer_disc_shadower.state_dict(),
+            #     "./data/results1/optimizer_D_B.pth",
+            # )
+
+            # torch.save(
+            #     lr_scheduler_gen.state_dict(), "./data/results1/lr_scheduler_G.pth"
+            # )
+            # torch.save(
+            #     lr_scheduler_disc_s.state_dict(), "./data/results1/lr_scheduler_D_A.pth"
+            # )
+            # torch.save(
+            #     lr_scheduler_disc_d.state_dict(), "./data/results1/lr_scheduler_D_B.pth"
+            # )
+
+            if (epoch + 1) % opt.snapshot_epochs == 0:
+                torch.save(
+                    trainer.generator_shadow_to_free.state_dict(),
+                    ("./data/results1/generator_shadow_to_free_%d.pth" % (epoch + 1)),
+                )
+                torch.save(
+                    trainer.generator_free_to_shadow.state_dict(),
+                    ("./data/results1/generator_free_to_shadow_%d.pth" % (epoch + 1)),
+                )
+                torch.save(
+                    trainer.discriminator_shadow_to_free.state_dict(),
+                    (
+                        "./data/results1/discriminator_shadow_to_free_%d.pth"
+                        % (epoch + 1)
+                    ),
+                )
+                torch.save(
+                    trainer.discriminator_free_to_shadow.state_dict(),
+                    (
+                        "./data/results1/discriminator_free_to_shadow_%d.pth"
+                        % (epoch + 1)
+                    ),
+                )
+
+    print(f"Epoch: {epoch+1} finished")
 
 
-print("finished training loop")
+print("Finished training loop.")

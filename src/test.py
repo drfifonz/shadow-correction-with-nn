@@ -9,7 +9,7 @@ import torch
 from PIL import Image
 import numpy as np
 
-from models import Generator_F2S, Generator_S2F, Deshadower
+from models import Generator_F2S, Generator_S2F
 from utils.utils import mask_generator, QueueMask
 
 
@@ -76,33 +76,23 @@ def test(opt):
     if not os.path.exists(f"{result_path}/mask"):
         os.makedirs(f"{result_path}/mask")
 
-    ##################################### A to B // shadow to shadow-free
+    # Deshadower
     images_list = [
         os.path.splitext(f)[0]
         for f in os.listdir(dataset_shadow_path)
         if f.endswith(im_sufix)
     ]
-    print(images_list)
 
-    # mask_queue = QueueMask(images_list.__len__())
     mask_queue = QueueMask(len(images_list))
 
-    # mask_non_shadow = Variable(
-    #     Tensor(1, 1, opt.size, opt.size).fill_(-1.0), requires_grad=False
-    # )
-
     for index, img_name in enumerate(images_list):
-        print("predicting: %d / %d" % (index + 1, len(images_list)))
 
-        # Set model input
         img = Image.open(
             os.path.join(dataset_shadow_path, img_name + im_sufix)
         ).convert("RGB")
         width, height = img.size
 
         image_variable = (img_transform(img).unsqueeze(0)).to(device)
-
-        # Generate output
 
         temp_B = Deshadower(image_variable)
 
@@ -114,11 +104,9 @@ def test(opt):
 
         Image.fromarray(fake_B).save(result_path + f"/B/{img_name + im_sufix}")
 
-        mask_last = mask_queue.last_item()
+        print(f"Generated images {(index + 1):03d} of {len(images_list):03d}")
 
-        print(f"Generated 1images {(index + 1):03d} of {len(images_list):03d}")
-
-    ##################################### B to A
+    # Shadower
     images_list = [
         os.path.splitext(f)[0]
         for f in os.listdir(dataset_shadow_free_path)
@@ -126,9 +114,7 @@ def test(opt):
     ]
 
     for index, img_name in enumerate(images_list):
-        print("predicting: %d / %d" % (index + 1, len(images_list)))
 
-        # Set model input
         img = Image.open(
             os.path.join(dataset_shadow_free_path, img_name + im_sufix)
         ).convert("RGB")
@@ -155,4 +141,4 @@ def test(opt):
 
         Image.fromarray(mask_cpu).save(result_path + f"/mask/{img_name + im_sufix}")
 
-        print(f"Generated 1images {(index + 1):03d} of {len(images_list):03d}")
+        print(f"Generated images {(index + 1):03d} of {len(images_list):03d}")

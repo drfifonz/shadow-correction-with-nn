@@ -11,12 +11,6 @@ from utils.utils import Buffer
 from utils.visualizer import print_memory_status
 
 
-# TODO clean up & add comments & rename some variables
-# TODO maybe create dedicated discriminator's optimizers
-# TODO what should disc_f2s and disc_s2f return
-# TODO queue mask and buffer classes
-
-
 class Trainer:
     """
     Class Trainer creates and instantiates all models, loss criterions, optimizers and
