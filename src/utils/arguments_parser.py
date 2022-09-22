@@ -39,6 +39,9 @@ def arguments_parser():
     parser.add_argument(
         "--iteration_loss", type=int, default=500, help="avarage loss for n iterations"
     )
+    parser.add_argument(
+        "--snapshot_epochs", type=int, default=50, help="number of epochs of training"
+    )
 
     return parser.parse_args()
 
