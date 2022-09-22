@@ -21,8 +21,8 @@ def test(opt):
     result_path = "./data/results1"
     im_sufix = ".png"
 
-    generator_deshadower = "./data/results/netG_A2B_200.pth"
-    generator_shadower = "./data/results/netG_B2A_200.pth"
+    generator_deshadower = "./data/results/generator_shadow_to_free_200.pth"
+    generator_shadower = "./data/results/generator_free_to_shadow_200.pth"
 
     # raise "OK"
     if torch.cuda.is_available():

@@ -218,33 +218,33 @@ def train(opt):
             # )
             # torch.save(
             #     trainer.discriminator_shadow_to_free.state_dict(),
-            #     "./data/results1/netD_A.pth",
+            #     "./data/results1/discriminator_shadow_to_free.pth",
             # )
             # torch.save(
             #     trainer.discriminator_free_to_shadow.state_dict(),
-            #     "./data/results1/netD_B.pth",
+            #     "./data/results1/discriminator_free_to_shadow.pth",
             # )
 
             # torch.save(
-            #     trainer.optimizer_gen.state_dict(), "./data/results1/optimizer_G.pth"
+            #     trainer.optimizer_gen.state_dict(), "./data/results1/optimizer_gen.pth"
             # )
             # torch.save(
             #     trainer.optimizer_disc_deshadower.state_dict(),
-            #     "./data/results1/optimizer_D_A.pth",
+            #     "./data/results1/optimizer_disc_deshadower.pth",
             # )
             # torch.save(
             #     trainer.optimizer_disc_shadower.state_dict(),
-            #     "./data/results1/optimizer_D_B.pth",
+            #     "./data/results1/optimizer_disc_shadower.pth",
             # )
 
             # torch.save(
-            #     lr_scheduler_gen.state_dict(), "./data/results1/lr_scheduler_G.pth"
+            #     lr_scheduler_gen.state_dict(), "./data/results1/lr_scheduler_gen.pth"
             # )
             # torch.save(
-            #     lr_scheduler_disc_s.state_dict(), "./data/results1/lr_scheduler_D_A.pth"
+            #     lr_scheduler_disc_s.state_dict(), "./data/results1/ lr_scheduler_disc_s.pth"
             # )
             # torch.save(
-            #     lr_scheduler_disc_d.state_dict(), "./data/results1/lr_scheduler_D_B.pth"
+            #     lr_scheduler_disc_d.state_dict(), "./data/results1/lr_scheduler_disc_d.pth"
             # )
 
             if (epoch + 1) % opt.snapshot_epochs == 0:
