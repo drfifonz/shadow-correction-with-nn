@@ -6,7 +6,9 @@ from train import train
 from test import test
 from dotenv import load_dotenv
 
-load_dotenv()
+from utils.visualizer import print_memory_status
+
+# load_dotenv()
 
 
 def main():
@@ -15,9 +17,10 @@ def main():
 
     print_all_user_arguments(args)
     if args.type == "test":
-        train(args)
-    elif args.type == "train":
         test(args)
+    elif args.type == "train":
+        print_memory_status()
+        train(args)
     else:
         sys.exit("Bad type to run")
 

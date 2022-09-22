@@ -5,159 +5,129 @@ import torch.nn.functional as F
 from typing import Any
 
 
-class Deshadower(nn.Module):
-    def __init__(
-        self,
-        out_channels: int,
-        in_channels: int = 64,
-        res_blocks: int = 9,
-        downsampling_iterations: int = 2,
-        upsampling_iterations: int = 2,
-    ):
-        super(Deshadower, self).__init__()
+class ResidualBlock(nn.Module):
+    def __init__(self, in_features):
+        super(ResidualBlock, self).__init__()
 
-        # Initial conv layer
-        self.model = nn.Sequential(
+        conv_block = [
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_features, in_features, 3),
+            nn.InstanceNorm2d(in_features),
+            nn.ReLU(inplace=True),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_features, in_features, 3),
+            nn.InstanceNorm2d(in_features),
+        ]
+
+        self.conv_block = nn.Sequential(*conv_block)
+
+    def forward(self, x):
+        return x + self.conv_block(x)
+
+
+class Generator_S2F(nn.Module):
+    def __init__(self, in_channels, out_channels, n_residual_blocks=9):
+        super(Generator_S2F, self).__init__()
+        input_nc = in_channels
+        output_nc = out_channels
+
+        # Initial layer
+        model = [
             nn.ReflectionPad2d(3),
-            nn.Conv2d(in_channels, 64, 7),
+            nn.Conv2d(input_nc, 64, 7),
             nn.InstanceNorm2d(64),
             nn.ReLU(inplace=True),
-        )
+        ]
 
-        # downsampling
-        out_channels = in_channels * 2
+        # Downsampling
+        in_features = 64
+        out_features = in_features * 2
+        for _ in range(2):
+            model += [
+                nn.Conv2d(in_features, out_features, 3, stride=2, padding=1),
+                nn.InstanceNorm2d(out_features),
+                nn.ReLU(inplace=True),
+            ]
+            in_features = out_features
+            out_features = in_features * 2
 
-        downsampling_block = (
-            nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=2,
-                padding=1,
-            ),
-            nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
+        # Residual blocks
+        for _ in range(n_residual_blocks):
+            model += [ResidualBlock(in_features)]
 
-        for _ in range(downsampling_iterations):
-            self.model, *_ = map(self.model.append, downsampling_block)
-            in_channels = out_channels
-            out_channels = in_channels * 2
+        # Upsampling
+        out_features = in_features // 2
+        for _ in range(2):
+            model += [
+                nn.ConvTranspose2d(
+                    in_features, out_features, 3, stride=2, padding=1, output_padding=1
+                ),
+                nn.InstanceNorm2d(out_features),
+                nn.ReLU(inplace=True),
+            ]
+            in_features = out_features
+            out_features = in_features // 2
 
-        # residual blocks
-        residual_block = (
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, in_channels, kernel_size=3),
-            nn.InstanceNorm2d(in_channels),
-            nn.ReLU(inplace=True),
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, in_channels, 3),
-            nn.InstanceNorm2d(in_channels),
-        )
+        model += [nn.ReflectionPad2d(3), nn.Conv2d(64, output_nc, 7)]
 
-        if res_blocks <= 0:
-            raise Exception("res_blocks number should be greater than 0")
+        self.model = nn.Sequential(*model)
 
-        for _ in range(res_blocks):
-            self.model, *_ = map(self.model.append, residual_block)
-
-        # upsampling
-        out_channels = in_channels // 2
-        upsampling_block = (
-            nn.ConvTranspose2d(
-                in_channels, out_channels, 3, stride=2, padding=1, output_padding=1
-            ),
-            nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-
-        for _ in range(upsampling_iterations):
-            self.model, *_ = map(self.model.append, upsampling_block)
-            in_channels = out_channels
-            out_channels = in_channels // 2
-
-        # output layer
-        self.model.append(nn.ReflectionPad2d(3))
-        self.model.append(nn.Conv2d(64, out_channels, 7))
-
-    def forward(self, x: Any):
+    def forward(self, x):
         return (self.model(x) + x).tanh()
 
 
-class Shadower(nn.Module):
-    def __init__(
-        self,
-        out_channels: int,
-        in_channels: int = 64,
-        res_blocks=9,
-        downsampling_iterations: int = 2,
-        upsampling_iterations: int = 2,
-    ):
-        super(Shadower, self).__init__()
-
-        # initial conv layer
-        self.model = nn.Sequential(
+class Generator_F2S(nn.Module):
+    def __init__(self, in_channels, out_channels, n_residual_blocks=9):
+        super(Generator_F2S, self).__init__()
+        input_nc = in_channels
+        output_nc = out_channels
+        # Initial convolution block
+        model = [
             nn.ReflectionPad2d(3),
-            # Additional channel is added to in_channels
-            # because of the presence of the mask
-            nn.Conv2d(in_channels + 1, 64, 7),
+            nn.Conv2d(input_nc + 1, 64, 7),  # extra input for mask channel
             nn.InstanceNorm2d(64),
             nn.ReLU(inplace=True),
-        )
+        ]
 
-        # downsampling
-        out_channels = in_channels * 2
+        # Downsampling
+        in_features = 64
+        out_features = in_features * 2
+        for _ in range(2):
+            model += [
+                nn.Conv2d(in_features, out_features, 3, stride=2, padding=1),
+                nn.InstanceNorm2d(out_features),
+                nn.ReLU(inplace=True),
+            ]
+            in_features = out_features
+            out_features = in_features * 2
 
-        downsampling_block = (
-            nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1),
-            nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
+        # Residual blocks
+        for _ in range(n_residual_blocks):
+            model += [ResidualBlock(in_features)]
 
-        for _ in range(downsampling_iterations):
-            self.model, *_ = map(self.model.append, downsampling_block)
-            in_channels = out_channels
-            out_channels = in_channels * 2
+        # Upsampling
+        out_features = in_features // 2
+        for _ in range(2):
+            model += [
+                nn.ConvTranspose2d(
+                    in_features, out_features, 3, stride=2, padding=1, output_padding=1
+                ),
+                nn.InstanceNorm2d(out_features),
+                nn.ReLU(inplace=True),
+            ]
+            in_features = out_features
+            out_features = in_features // 2
 
-        # residual blocks
-        residual_block = (
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, in_channels, kernel_size=3),
-            nn.InstanceNorm2d(in_channels),
-            nn.ReLU(inplace=True),
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_channels, in_channels, 3),
-            nn.InstanceNorm2d(in_channels),
-        )
-        if res_blocks <= 0:
-            raise Exception("res_blocks number should be greater than 0")
+        # Output layer
+        model += [nn.ReflectionPad2d(3), nn.Conv2d(64, output_nc, 7)]
 
-        for _ in range(res_blocks):
-            self.model, *_ = map(self.model.append, residual_block)
+        self.model = nn.Sequential(*model)
 
-        # upsampling
-        out_channels = in_channels // 2
-        upsampling_block = (
-            nn.ConvTranspose2d(in_channels, out_channels, 3, stride=2, padding=1),
-            nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-        for _ in range(upsampling_iterations):
-            self.model, *_ = map(self.model.append, upsampling_block)
+    def forward(self, x, mask):
+        with torch.no_grad():
+            output = (self.model(torch.cat((x, mask), 1)) + x).tanh()
 
-        in_channels = out_channels
-        out_channels = in_channels // 2
-
-        # output layer
-        self.model.append(nn.ReflectionPad2d(3))
-        self.model.append(nn.Conv2d(64, out_channels, 7))
-
-    def forward(self, x: Any, mask):
-        """
-        Forward method \n
-        returns \n
-        (self.model(torch.cat((x, mask), 1)) + x).tanh()"""
-        return (self.model(torch.cat((x, mask), 1)) + x).tanh()
+        return output
 
 
 class Discriminator(nn.Module):
@@ -168,13 +138,21 @@ class Discriminator(nn.Module):
     ) -> None:
         super(Discriminator, self).__init__()
 
+        # print("_______________________________")
+        # print("DISCRIMINATOR")
+
         self.model = nn.Sequential(
             nn.Conv2d(
-                in_channels, out_channels := 64, kernel_size=4, stride=2, padding=1
+                in_channels, out_features := 64, kernel_size=4, stride=2, padding=1
             ),
             nn.LeakyReLU(0.2, inplace=True),
         )
+        # temp
+        out_channels = 64
 
+        in_features = out_features
+        out_features = in_features * 2
+        # print(f"in_features:\t{in_features}\tout_features\t{out_features}\tafter init")
         downsampling_block = (
             nn.Conv2d(
                 in_channels := out_channels,
@@ -189,22 +167,50 @@ class Discriminator(nn.Module):
         if layers_number <= 0:
             raise Exception("layers_number should be greater than 0")
 
-        for _ in range(layers_number):
-            self.model, *_ = map(self.model.append, downsampling_block)
-
+        for num in range(layers_number):
+            # print(f"ALOHA {num} of {layers_number}")
+            self.model, *_ = map(
+                self.model.append, self.__downsampling_block(in_features, out_features)
+            )
+            # print(
+            #     f"in_features:\t{in_features}\tout_features\t{out_features}\tlayer num:\t{num+1}"
+            # )
+            in_features = out_features
+            out_features *= 2
         # classification layer
         self.model.append(
             nn.Conv2d(
-                in_channels := out_channels,
-                out_channels := 1,
+                in_channels=512,
+                out_channels=1,
                 kernel_size=4,
                 stride=2,
                 padding=1,
             )
         )
+        # print(f"in_features:\t{512}\tout_features\t{1}\tlast layer ")
+        # print("_______________________________")
 
     def forward(self, x: Any):
+        # with torch.no_grad():
+        #     x = self.model(x)
+        #     output = F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+        # return output
         x = self.model(x)
         return F.avg_pool2d(x, x.size()[2:]).view(
             x.size()[0], -1
         )  # consider other forward function
+
+    def __downsampling_block(self, in_features: int, out_features: int) -> tuple:
+
+        downsampling_block = (
+            nn.Conv2d(
+                in_channels=in_features,
+                out_channels=out_features,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            nn.InstanceNorm2d(out_features),  # try nn.BatchNorm2d()
+            nn.LeakyReLU(0.2, inplace=True),
+        )
+        return downsampling_block

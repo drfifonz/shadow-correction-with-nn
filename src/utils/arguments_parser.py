@@ -10,7 +10,7 @@ def arguments_parser():
     description = "Parser"
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("--type", type=str, default="test", help="[test/train]")
+    parser.add_argument("--type", type=str, default="train", help="[test/train]")
     parser.add_argument("--resume", action="store_true", help="resume training")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     parser.add_argument(
@@ -35,6 +35,12 @@ def arguments_parser():
         "--decay_epoch",
         type=int,
         help="epoch to start linearly decaying the learning rate to 0",
+    )
+    parser.add_argument(
+        "--iteration_loss", type=int, default=500, help="avarage loss for n iterations"
+    )
+    parser.add_argument(
+        "--snapshot_epochs", type=int, default=50, help="number of epochs of training"
     )
 
     return parser.parse_args()

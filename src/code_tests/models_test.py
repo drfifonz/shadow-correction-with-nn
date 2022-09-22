@@ -13,7 +13,7 @@ def channels():
 
 def test_deshadower(channels):
     in_channels, out_channels = channels
-    assert models.Deshadower(in_channels, out_channels)
+    assert models.Deshadower1(in_channels, out_channels)
 
 
 def test_shadower(channels):
