@@ -5,6 +5,26 @@ import torch.nn.functional as F
 from typing import Any
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_features):
+        super(ResidualBlock, self).__init__()
+
+        conv_block = [
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_features, in_features, 3),
+            nn.InstanceNorm2d(in_features),
+            nn.ReLU(inplace=True),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_features, in_features, 3),
+            nn.InstanceNorm2d(in_features),
+        ]
+
+        self.conv_block = nn.Sequential(*conv_block)
+
+    def forward(self, x):
+        return x + self.conv_block(x)
+
+
 class Deshadower(nn.Module):
     def __init__(
         self,
@@ -27,14 +47,9 @@ class Deshadower(nn.Module):
             nn.InstanceNorm2d(64),
             nn.ReLU(inplace=True),
         )
-        # downsampling
-        # in_channels = 64
-        # out_channels = in_channels * 2
 
         in_features = out_features
         out_features = in_features * 2
-
-        # print(f"in_features: {in_features}, out_features: {out_features}\tOK\n ")
 
         downsampling_block = (
             nn.Conv2d(
@@ -56,13 +71,6 @@ class Deshadower(nn.Module):
             )
             in_features = out_features
             out_features = in_features * 2
-            print(
-                # f"in_features: {in_features}, out_features: {out_features}\t after downsampling num: {num+1} \n "
-            )
-
-        print(
-            # f"in_features: {in_features}, out_features: {out_features}\t after downsampling\n "
-        )
 
         # residual blocks
         residual_block = (
@@ -79,24 +87,17 @@ class Deshadower(nn.Module):
             raise Exception(
                 f"res_blocks number should be positive number (it's: {res_blocks})"
             )
-
+        model_temp = []
         # in_features = out_features
         for num in range(res_blocks):
-            self.model, *_ = map(
-                self.model.append, self.__residual_block(in_features, out_features)
-            )
-            print(
-                # f"in_features: {in_features}, out_features: {out_features}\tafter residual num: {num+1}\n "
-            )
-
-        # print(
-        #     f"in_features: {in_features}, out_features: {out_features}\tafter residual\n "
-        # )
-
-        # upsampling
-        # out_channels = in_channels // 2
-        # in_features = out_features
-
+            # self.model, *_ = map(
+            #     self.model.append, self.__residual_block(in_features, out_features)
+            # )
+            self.model.append(ResidualBlock(in_features))
+            # print(
+            #     # f"in_features: {in_features}, out_features: {out_features}\tafter residual num: {num+1}\n "
+            # )
+        # self.model.append(*model_temp)
         out_features = in_features // 2
 
         print(
@@ -138,7 +139,7 @@ class Deshadower(nn.Module):
         # print("------------------------------------")
         # print(self.model)
         # print("DESHADOWER")
-        print("------------------------------------")
+        # print("------------------------------------")
         # raise
 
     def forward(self, x: torch.Tensor):
@@ -203,9 +204,7 @@ class Shadower(nn.Module):
 
         in_features = in_channels
         out_features = 64
-        print(
-            # f"in_features: {in_features}, out_features: {out_features}\tb4 initial conv\n "
-        )
+
         # initial conv layer
         self.model = nn.Sequential(
             nn.ReflectionPad2d(3),
@@ -215,17 +214,9 @@ class Shadower(nn.Module):
             nn.InstanceNorm2d(out_features),
             nn.ReLU(inplace=True),
         )
-        print(
-            f"in_features: {in_features}, out_features: {out_features}\tafter initial conv\n "
-        )
 
-        # downsampling
-        # out_channels = in_channels * 2
         in_features = out_features
         out_features = in_features * 2
-        print(
-            f"in_features: {in_features}, out_features: {out_features}\tb4 downsampling\n "
-        )
 
         downsampling_block = (
             nn.Conv2d(in_channels, out_channels, 3, stride=2, padding=1),
@@ -239,11 +230,6 @@ class Shadower(nn.Module):
             )
             in_features = out_features
             out_features = in_features * 2
-            print(
-                f"in_features: {in_features}, out_features: {out_features}\tafter downsampling num: {num+1}\n "
-            )
-            # in_channels = out_channels
-            # out_channels = in_channels * 2
 
         # residual blocks
         residual_block = (
@@ -295,11 +281,11 @@ class Shadower(nn.Module):
         self.model.append(nn.ReflectionPad2d(3))
         self.model.append(nn.Conv2d(64, out_channels, 7))
 
-        print("------------------------------------")
-        print(self.model)
-        print("SHADOWER")
+        # print("------------------------------------")
+        # print(self.model)
+        # print("SHADOWER")
 
-        print("------------------------------------")
+        # print("------------------------------------")
         # raise
 
     def forward(self, x: Any, mask):
@@ -342,28 +328,10 @@ class Shadower(nn.Module):
 
 
 # tobe removed
-class ResidualBlock(nn.Module):
-    def __init__(self, in_features):
-        super(ResidualBlock, self).__init__()
-
-        conv_block = [
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_features, in_features, 3),
-            nn.InstanceNorm2d(in_features),
-            nn.ReLU(inplace=True),
-            nn.ReflectionPad2d(1),
-            nn.Conv2d(in_features, in_features, 3),
-            nn.InstanceNorm2d(in_features),
-        ]
-
-        self.conv_block = nn.Sequential(*conv_block)
-
-    def forward(self, x):
-        return x + self.conv_block(x)
 
 
 class Generator_S2F(nn.Module):
-    def __init__(self, in_channels, out_channels, n_residual_blocks=4):
+    def __init__(self, in_channels, out_channels, n_residual_blocks=9):
         super(Generator_S2F, self).__init__()
         input_nc = in_channels
         output_nc = out_channels
@@ -416,7 +384,7 @@ class Generator_S2F(nn.Module):
 
 
 class Generator_F2S(nn.Module):
-    def __init__(self, in_channels, out_channels, n_residual_blocks=4):
+    def __init__(self, in_channels, out_channels, n_residual_blocks=9):
         super(Generator_F2S, self).__init__()
         input_nc = in_channels
         output_nc = out_channels
