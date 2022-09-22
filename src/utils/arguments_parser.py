@@ -24,7 +24,7 @@ def arguments_parser():
         "--out_channels", type=int, default=3, help="number of output channels"
     )
     parser.add_argument(
-        "--epochs", type=int, default=5, help="number of epochs of training"
+        "--epochs", type=int, default=200, help="number of epochs of training"
     )
     parser.add_argument("--dataset", type=str, default="ISTD", help="select dataset")
     parser.add_argument("--lr", type=float, default=0.005, help="learning rate")
